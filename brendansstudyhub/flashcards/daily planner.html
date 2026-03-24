@@ -250,7 +250,71 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font
 
 <script>
 // ── Config ────────────────────────────────────────────────────────────────────
-const STORE_KEY = 'dp_events_v2';
+const STORE_KEY   = 'dp_events_v2';
+const PLANNER_DB  = '63ab2daeab1b46c3a4a8cdc10cc0e947';
+const NOTION_VER  = '2022-06-28';
+const PROXY       = '/api/notion';
+
+let NOTION_TOKEN = localStorage.getItem('fc_notion_token') || '';
+const nhdr = () => ({ 'Authorization': `Bearer ${NOTION_TOKEN}`, 'Content-Type': 'application/json', 'Notion-Version': NOTION_VER });
+
+async function nPost(path, body) {
+  const r = await fetch(PROXY+`/v1${path}`, { method:'POST', headers:nhdr(), body:JSON.stringify(body) });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message||r.status); }
+  return r.json();
+}
+async function nPatch(path, body) {
+  const r = await fetch(PROXY+`/v1${path}`, { method:'PATCH', headers:nhdr(), body:JSON.stringify(body) });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message||r.status); }
+  return r.json();
+}
+async function queryPlannerDB(dateStr) {
+  const r = await nPost(`/databases/${PLANNER_DB}/query`, {
+    filter: { property:'Date', date:{ equals: dateStr } },
+    sorts: [{ property:'Start', direction:'ascending' }],
+    page_size: 100
+  });
+  return (r.results||[]).map(p => ({
+    id:    p.id,
+    notionId: p.id,
+    title: p.properties?.Title?.title?.[0]?.plain_text || '',
+    start: p.properties?.Start?.rich_text?.[0]?.plain_text || '09:00',
+    end:   p.properties?.End?.rich_text?.[0]?.plain_text   || '10:00',
+    type:  (p.properties?.Type?.select?.name||'Session').toLowerCase(),
+    done:  p.properties?.Done?.checkbox || false,
+    notes: p.properties?.Notes?.rich_text?.[0]?.plain_text || '',
+  }));
+}
+
+async function saveToNotion(ev, dateStr) {
+  const props = {
+    Title: { title:[{ text:{ content: ev.title } }] },
+    Start: { rich_text:[{ text:{ content: ev.start } }] },
+    End:   { rich_text:[{ text:{ content: ev.end } }] },
+    Type:  { select:{ name: ev.type.charAt(0).toUpperCase()+ev.type.slice(1) } },
+    Done:  { checkbox: ev.done||false },
+    Notes: { rich_text: ev.notes ? [{ text:{ content: ev.notes } }] : [] },
+    Date:  { date:{ start: dateStr } }
+  };
+  if (ev.notionId) {
+    await nPatch(`/pages/${ev.notionId}`, { properties: props });
+  } else {
+    const p = await nPost('/pages', { parent:{ database_id: PLANNER_DB }, properties: props });
+    ev.notionId = p.id;
+  }
+}
+
+async function deleteFromNotion(notionId) {
+  if (!notionId) return;
+  await nPatch(`/pages/${notionId}`, { archived: true });
+}
+
+async function loadDayFromNotion(dateStr) {
+  if (!NOTION_TOKEN) return null;
+  try {
+    return await queryPlannerDB(dateStr);
+  } catch(e) { console.warn('Notion load failed:', e.message); return null; }
+}
 const START_H   = 6;
 const END_H     = 23;
 const HOUR_H    = 64; // px per hour — matches --hour-h
@@ -292,9 +356,19 @@ function toast(msg,type='') {
   const el=document.createElement('div'); el.className='toast'+(type?' '+type:''); el.textContent=msg;
   document.body.appendChild(el); setTimeout(()=>el.remove(),2800);
 }
-function save() { localStorage.setItem(STORE_KEY, JSON.stringify(store)); }
+function saveLocal() { localStorage.setItem(STORE_KEY, JSON.stringify(store)); }
 function getDay() { return store[fmtKey(curDate)] || []; }
-function setDay(evs) { store[fmtKey(curDate)] = evs; save(); }
+function setDay(evs) { store[fmtKey(curDate)] = evs; saveLocal(); }
+
+// ── Load day from Notion ──────────────────────────────────────────────────────
+async function loadDay(dateStr) {
+  const notionEvs = await loadDayFromNotion(dateStr);
+  if (notionEvs) {
+    store[dateStr] = notionEvs;
+    saveLocal();
+  }
+  render();
+}
 
 // ── Day strip ─────────────────────────────────────────────────────────────────
 function buildStrip() {
@@ -308,7 +382,7 @@ function buildStrip() {
     const isA  = fmtKey(d)===fmtKey(curDate);
     chip.className = 'day-chip'+(isT?' today':'')+(isA?' active':'');
     chip.innerHTML = `<div class="dn">${DAYS[d.getDay()]}</div><div class="dd">${d.getDate()}</div>`;
-    chip.addEventListener('click', ()=>{ curDate=d; window._hasScrolled=false; buildStrip(); render(); });
+    chip.addEventListener('click', ()=>{ curDate=d; window._hasScrolled=false; buildStrip(); loadDay(fmtKey(d)); });
     strip.appendChild(chip);
   }
 }
@@ -509,6 +583,10 @@ function startDrag(e, ev, mode) {
         target.end = m2t(el._snapEnd);
       }
       setDay(evs);
+      // Sync to Notion
+      if(target.notionId && NOTION_TOKEN) {
+        saveToNotion(target, fmtKey(curDate)).catch(e=>console.warn('Notion sync failed:',e.message));
+      }
     }
     render();
   }
@@ -535,7 +613,13 @@ function updateSummary() {
 
 function toggleDone(id) {
   const evs=getDay(); const ev=evs.find(e=>e.id===id);
-  if(ev){ ev.done=!ev.done; setDay(evs); render(); }
+  if(ev){
+    ev.done=!ev.done; setDay(evs); render();
+    if(ev.notionId && NOTION_TOKEN) {
+      nPatch(`/pages/${ev.notionId}`, { properties:{ Done:{ checkbox: ev.done } } })
+        .catch(e=>console.warn('Notion sync failed:',e.message));
+    }
+  }
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
@@ -587,13 +671,22 @@ function getForm() {
 function commitSave(data) {
   if(!data.title){ toast('Enter a title','err'); return false; }
   const evs=getDay();
+  let ev;
   if(editId) {
     const i=evs.findIndex(e=>e.id===editId);
-    if(i>-1) evs[i]={...evs[i],...data};
+    if(i>-1){ evs[i]={...evs[i],...data}; ev=evs[i]; }
   } else {
-    evs.push({id:uid(),done:false,...data});
+    ev={id:uid(),done:false,...data};
+    evs.push(ev);
   }
-  setDay(evs); render(); closeModal(); return true;
+  setDay(evs); render(); closeModal();
+  // Sync to Notion in background
+  if(ev && NOTION_TOKEN) {
+    saveToNotion(ev, fmtKey(curDate)).then(()=>{
+      setDay(evs); // update notionId
+    }).catch(e=>console.warn('Notion sync failed:',e.message));
+  }
+  return true;
 }
 
 document.getElementById('m-save').addEventListener('click', ()=>{ if(commitSave(getForm())) toast('Saved ✓','ok'); });
@@ -603,8 +696,13 @@ document.getElementById('m-inp-title').addEventListener('keydown', e=>{ if(e.key
 document.querySelectorAll('.tp').forEach(p=>p.addEventListener('click',()=>setMType(p.dataset.t)));
 
 document.getElementById('m-del').addEventListener('click', ()=>{
-  setDay(getDay().filter(e=>e.id!==editId));
+  const evs=getDay();
+  const ev=evs.find(e=>e.id===editId);
+  setDay(evs.filter(e=>e.id!==editId));
   render(); closeModal(); toast('Block deleted');
+  if(ev?.notionId && NOTION_TOKEN) {
+    deleteFromNotion(ev.notionId).catch(e=>console.warn('Notion delete failed:',e.message));
+  }
 });
 
 document.getElementById('m-gcal').addEventListener('click', async ()=>{
@@ -648,9 +746,9 @@ document.querySelectorAll('.legend').forEach(l=>{
 document.querySelectorAll('.tmpl-btn').forEach(b=>b.addEventListener('click',()=>openAdd(TMPL[b.dataset.tmpl]||{})));
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
-document.getElementById('btn-prev').addEventListener('click',()=>{ curDate=addDays(curDate,-1); window._hasScrolled=false; buildStrip(); render(); });
-document.getElementById('btn-next').addEventListener('click',()=>{ curDate=addDays(curDate,1);  window._hasScrolled=false; buildStrip(); render(); });
-document.getElementById('date-lbl').addEventListener('click',()=>{ curDate=today0(); window._hasScrolled=false; buildStrip(); render(); });
+document.getElementById('btn-prev').addEventListener('click',()=>{ curDate=addDays(curDate,-1); window._hasScrolled=false; buildStrip(); loadDay(fmtKey(curDate)); });
+document.getElementById('btn-next').addEventListener('click',()=>{ curDate=addDays(curDate,1);  window._hasScrolled=false; buildStrip(); loadDay(fmtKey(curDate)); });
+document.getElementById('date-lbl').addEventListener('click',()=>{ curDate=today0(); window._hasScrolled=false; buildStrip(); loadDay(fmtKey(curDate)); });
 document.getElementById('btn-add').addEventListener('click',()=>openAdd());
 
 // ── Auto-refresh now line ─────────────────────────────────────────────────────
@@ -658,7 +756,7 @@ setInterval(()=>{ if(fmtKey(curDate)===fmtKey(today0())) render(); }, 60000);
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 buildStrip();
-render();
+loadDay(fmtKey(curDate));
 </script>
 </body>
 </html>
