@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Notes</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#242424; --surf:#2e2e2e; --surf2:#363636; --surf3:#404040;
+  --bdr:#484848; --bdr2:#585858;
+  --txt:#f0f0f0; --txt2:#a0a0a0; --txt3:#606060;
+  --acc:#e8e8e8; --green:#6abf7b; --red:#d96b6b; --blue:#6b9fd4; --amber:#d4a96b; --purple:#a78fd4; --orange:#d4906b;
+  --shadow:rgba(0,0,0,0.5);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:'IBM Plex Mono',monospace}
+.shell{height:100vh;display:flex;flex-direction:column}
+
+/* ── Topbar ── */
+.topbar{height:52px;border-bottom:1px solid var(--bdr);padding:0 16px;display:flex;align-items:center;gap:10px;background:var(--surf);flex-shrink:0;z-index:20}
+.back-btn{background:none;border:1px solid var(--bdr);border-radius:3px;color:var(--txt2);font-size:0.8rem;width:32px;height:32px;display:flex;align-items:center;justify-content:center;transition:all .15s;text-decoration:none;flex-shrink:0}
+.back-btn:hover{border-color:var(--bdr2);color:var(--txt)}
+.breadcrumb{font-size:0.72rem;color:var(--txt3);display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden}
+.breadcrumb-item{color:var(--txt2);cursor:pointer;white-space:nowrap;transition:color .12s}
+.breadcrumb-item:hover{color:var(--txt)}
+.breadcrumb-item.active{color:var(--txt);font-weight:500}
+.breadcrumb-sep{color:var(--txt3);flex-shrink:0}
+.notion-pill{display:flex;align-items:center;gap:5px;font-size:0.57rem;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;flex-shrink:0}
+.notion-dot{width:5px;height:5px;border-radius:50%;background:var(--bdr2);transition:background .3s}
+.notion-dot.connected{background:var(--green)}
+.topbar-btn{background:none;border:1px solid var(--bdr);border-radius:3px;color:var(--txt2);cursor:pointer;font-size:0.65rem;letter-spacing:1px;text-transform:uppercase;padding:5px 10px;transition:all .15s;font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+.topbar-btn:hover{border-color:var(--bdr2);color:var(--txt)}
+.topbar-btn.primary{background:var(--acc);border-color:var(--acc);color:var(--bg);font-weight:500}
+.topbar-btn.primary:hover{background:var(--txt2);border-color:var(--txt2)}
+
+/* ── Main layout ── */
+.main{flex:1;overflow:hidden;display:flex}
+
+/* ── SCREENS ── */
+.screen{display:none;flex:1;flex-direction:column;overflow:hidden}
+.screen.active{display:flex}
+
+/* ── Subjects screen ── */
+.screen-content{flex:1;overflow-y:auto;padding:28px;-webkit-overflow-scrolling:touch}
+.screen-hero{margin-bottom:32px}
+.screen-hero h1{font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:800;letter-spacing:-1px;margin-bottom:6px}
+.screen-hero p{font-size:0.72rem;color:var(--txt2);line-height:1.6}
+
+/* Subject grid */
+.subject-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px}
+.subject-card{border-radius:8px;padding:20px 18px;cursor:pointer;transition:transform .15s,box-shadow .15s;position:relative;overflow:hidden;min-height:100px;display:flex;flex-direction:column;justify-content:space-between;border:1px solid transparent}
+.subject-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.4)}
+.subject-card-name{font-family:'Syne',sans-serif;font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:4px}
+.subject-card-count{font-size:0.62rem;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px}
+.subject-card-del{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.3);border:none;border-radius:50%;color:rgba(255,255,255,.5);cursor:pointer;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;transition:all .15s;opacity:0}
+.subject-card:hover .subject-card-del{opacity:1}
+.subject-card-del:hover{background:rgba(217,107,107,.6);color:#fff}
+
+.add-subject-card{border:1px dashed var(--bdr2);border-radius:8px;padding:20px 18px;cursor:pointer;transition:all .15s;min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--txt3);background:transparent}
+.add-subject-card:hover{border-color:var(--txt2);color:var(--txt);background:var(--surf)}
+.add-subject-icon{font-size:1.4rem}
+.add-subject-label{font-size:0.7rem;text-transform:uppercase;letter-spacing:1.5px}
+
+/* ── Folders screen ── */
+.folder-header{padding:24px 28px 0;flex-shrink:0}
+.folder-header h2{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px}
+.folder-header p{font-size:0.7rem;color:var(--txt2)}
+
+.folder-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:20px 28px}
+.folder-card{background:var(--surf);border:1px solid var(--bdr);border-radius:6px;padding:16px;cursor:pointer;transition:border-color .15s,background .15s,transform .12s;position:relative}
+.folder-card:hover{border-color:var(--bdr2);background:var(--surf2);transform:translateY(-1px)}
+.folder-card-icon{font-size:1.4rem;margin-bottom:8px}
+.folder-card-name{font-family:'Syne',sans-serif;font-size:0.82rem;font-weight:600;color:var(--txt);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.folder-card-count{font-size:0.6rem;color:var(--txt3);text-transform:uppercase;letter-spacing:1px}
+.folder-card-del{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--txt3);cursor:pointer;font-size:0.8rem;opacity:0;transition:opacity .1s,color .1s;padding:2px 4px}
+.folder-card:hover .folder-card-del{opacity:.6}
+.folder-card-del:hover{opacity:1!important;color:var(--red)}
+.add-folder-card{border:1px dashed var(--bdr2);border-radius:6px;padding:16px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:90px;color:var(--txt3)}
+.add-folder-card:hover{border-color:var(--txt2);color:var(--txt);background:var(--surf)}
+
+/* ── Notes screen ── */
+.notes-header{padding:24px 28px 0;flex-shrink:0}
+.notes-header h2{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px}
+
+.notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;padding:20px 28px}
+.note-card{background:var(--surf);border:1px solid var(--bdr);border-radius:6px;padding:18px;cursor:pointer;transition:border-color .15s,background .15s,transform .12s;position:relative;display:flex;flex-direction:column;gap:10px;min-height:140px}
+.note-card:hover{border-color:var(--bdr2);background:var(--surf2);transform:translateY(-2px)}
+.note-card-title{font-family:'Syne',sans-serif;font-size:0.9rem;font-weight:700;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note-card-preview{font-size:0.68rem;color:var(--txt2);line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;flex:1}
+.note-card-footer{display:flex;flex-direction:column;gap:2px;margin-top:auto}
+.note-card-date{font-size:0.6rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.5px}
+.note-card-del{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--txt3);cursor:pointer;font-size:0.8rem;opacity:0;transition:opacity .1s,color .1s;padding:2px 4px}
+.note-card:hover .note-card-del{opacity:.6}
+.note-card-del:hover{opacity:1!important;color:var(--red)}
+
+.add-note-card{border:1px dashed var(--bdr2);border-radius:6px;padding:18px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:140px;color:var(--txt3)}
+.add-note-card:hover{border-color:var(--txt2);color:var(--txt);background:var(--surf)}
+
+/* ── EDITOR ── */
+.editor-wrap{display:flex;flex:1;overflow:hidden}
+
+/* Sidebar */
+.editor-sidebar{width:200px;border-right:1px solid var(--bdr);background:var(--surf);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;transition:width .2s}
+.editor-sidebar.collapsed{width:0;border-right:none}
+.editor-sidebar-inner{width:200px;display:flex;flex-direction:column;height:100%;overflow:hidden}
+.editor-sidebar-section{padding:12px 10px 6px;flex-shrink:0}
+.editor-sidebar-label{font-size:0.57rem;text-transform:uppercase;letter-spacing:2px;color:var(--txt3);padding:0 6px;margin-bottom:5px;display:block}
+.sidebar-note-list{flex:1;overflow-y:auto}
+.sidebar-note-item{padding:6px 8px;border-radius:3px;cursor:pointer;font-size:0.71rem;color:var(--txt2);transition:background .1s,color .1s;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-note-item:hover{background:var(--surf2);color:var(--txt)}
+.sidebar-note-item.active{background:var(--surf3);color:var(--txt)}
+.sidebar-new-btn{margin:8px;font-family:'IBM Plex Mono',monospace;font-size:0.65rem;letter-spacing:1px;text-transform:uppercase;padding:6px 10px;border:1px dashed var(--bdr2);background:transparent;color:var(--txt3);cursor:pointer;border-radius:3px;transition:all .15s;width:calc(100% - 16px)}
+.sidebar-new-btn:hover{border-color:var(--txt2);color:var(--txt)}
+
+/* Editor main */
+.editor-main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+
+/* Toolbar */
+.editor-toolbar{border-bottom:1px solid var(--bdr);padding:6px 16px;display:flex;gap:2px;flex-wrap:wrap;align-items:center;background:var(--surf);flex-shrink:0}
+.tool-btn{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:0.8rem;padding:5px 7px;border-radius:3px;transition:all .12s;line-height:1;font-family:'IBM Plex Mono',monospace;display:flex;align-items:center;justify-content:center}
+.tool-btn:hover{background:var(--surf2);color:var(--txt)}
+.tool-btn.active{background:var(--surf3);color:var(--txt)}
+.tool-sep{width:1px;height:18px;background:var(--bdr);margin:0 4px;flex-shrink:0}
+.tool-label{font-size:0.6rem;text-transform:uppercase;letter-spacing:1px;color:var(--txt3)}
+.color-btn{width:18px;height:18px;border-radius:3px;border:1px solid var(--bdr);cursor:pointer;transition:transform .1s;flex-shrink:0}
+.color-btn:hover{transform:scale(1.15)}
+
+/* Editor content area */
+.editor-content-wrap{flex:1;overflow-y:auto;padding:40px 60px;-webkit-overflow-scrolling:touch}
+.note-title-input{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;background:none;border:none;outline:none;color:var(--txt);width:100%;margin-bottom:24px;letter-spacing:-1px;line-height:1.2}
+.note-title-input::placeholder{color:var(--txt3)}
+.editor{min-height:400px;outline:none;font-family:'Inter',sans-serif;font-size:0.9rem;line-height:1.8;color:var(--txt2)}
+.editor:empty::before{content:attr(data-placeholder);color:var(--txt3);pointer-events:none}
+.editor:focus{color:var(--txt)}
+
+/* Editor block styles */
+.editor h1{font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;color:var(--txt);margin:24px 0 8px;line-height:1.2;letter-spacing:-0.5px}
+.editor h2{font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:700;color:var(--txt);margin:20px 0 6px;line-height:1.3}
+.editor h3{font-family:'Syne',sans-serif;font-size:1rem;font-weight:600;color:var(--txt);margin:16px 0 4px}
+.editor p{margin:4px 0;min-height:1.5em}
+.editor ul,.editor ol{padding-left:24px;margin:8px 0}
+.editor li{margin-bottom:3px}
+.editor blockquote{border-left:3px solid var(--blue);padding:10px 16px;background:rgba(107,159,212,.08);border-radius:0 4px 4px 0;margin:12px 0;color:var(--txt2)}
+.editor code{font-family:'IBM Plex Mono',monospace;font-size:0.82em;background:var(--surf3);border:1px solid var(--bdr);border-radius:3px;padding:1px 5px;color:var(--blue)}
+.editor pre{background:var(--surf3);border:1px solid var(--bdr);border-radius:6px;padding:14px 16px;overflow-x:auto;margin:12px 0;font-family:'IBM Plex Mono',monospace;font-size:0.82rem;color:var(--txt2)}
+.editor pre code{background:none;border:none;padding:0}
+.editor mark{background:rgba(212,169,107,.3);color:var(--txt);border-radius:2px;padding:0 2px}
+.editor img{max-width:100%;border-radius:6px;margin:12px 0;display:block;border:1px solid var(--bdr)}
+.editor hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
+.editor a{color:var(--blue);text-decoration:underline}
+.editor strong{color:var(--txt);font-weight:600}
+.editor em{font-style:italic;color:var(--txt)}
+
+/* Callout block */
+.callout{display:flex;gap:10px;padding:12px 14px;border-radius:6px;margin:10px 0;background:var(--surf);border:1px solid var(--bdr)}
+.callout-icon{font-size:1.1rem;flex-shrink:0;line-height:1.6}
+.callout-content{flex:1;font-size:0.85rem;color:var(--txt2);line-height:1.6}
+.callout.info{background:rgba(107,159,212,.1);border-color:rgba(107,159,212,.3)}
+.callout.warning{background:rgba(212,169,107,.1);border-color:rgba(212,169,107,.3)}
+.callout.success{background:rgba(106,191,123,.1);border-color:rgba(106,191,123,.3)}
+.callout.danger{background:rgba(217,107,107,.1);border-color:rgba(217,107,107,.3)}
+
+/* Save indicator */
+.save-status{font-size:0.62rem;color:var(--txt3);letter-spacing:1px;display:flex;align-items:center;gap:5px;flex-shrink:0}
+.save-dot{width:5px;height:5px;border-radius:50%;background:var(--txt3);transition:background .3s}
+.save-dot.saving{background:var(--amber);animation:pulse 1s ease-in-out infinite}
+.save-dot.saved{background:var(--green)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Loading ── */
+.loading-row{display:flex;align-items:center;gap:10px;padding:20px;color:var(--txt3);font-size:0.72rem}
+.spinner{width:13px;height:13px;border:2px solid var(--bdr);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Modals ── */
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:flex-end;justify-content:center}
+.modal-backdrop.open{display:flex}
+.modal{background:var(--surf);border:1px solid var(--bdr2);border-radius:10px 10px 0 0;padding:22px 20px calc(22px + var(--safe-bottom));width:100%;max-width:420px;box-shadow:0 -8px 32px var(--shadow);animation:slideup .22s ease}
+@keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal h3{font-family:'Syne',sans-serif;font-size:0.92rem;font-weight:700;margin-bottom:14px}
+.modal-field{margin-bottom:10px}
+.modal-field label{font-size:0.58rem;text-transform:uppercase;letter-spacing:2px;color:var(--txt3);display:block;margin-bottom:5px}
+.modal-field input{font-family:'IBM Plex Mono',monospace;font-size:0.78rem;padding:8px 10px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt);border-radius:3px;outline:none;width:100%;transition:border-color .15s;-webkit-appearance:none}
+.modal-field input:focus{border-color:var(--blue)}
+.modal-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}
+.color-picker{display:flex;gap:6px;flex-wrap:wrap}
+.color-swatch{width:28px;height:28px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:all .12s}
+.color-swatch.selected{border-color:#fff;transform:scale(1.1)}
+@media(min-width:681px){
+  .modal-backdrop{align-items:center}
+  .modal{border-radius:6px;max-width:380px;padding:22px 24px;animation:fadein .18s ease}
+  @keyframes fadein{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+}
+
+/* Btn */
+.btn{font-family:'IBM Plex Mono',monospace;font-size:0.67rem;letter-spacing:1.5px;text-transform:uppercase;padding:7px 14px;border:1px solid var(--acc);background:var(--acc);color:var(--bg);cursor:pointer;border-radius:2px;transition:all .15s;white-space:nowrap;font-weight:500}
+.btn:hover{background:var(--txt2);border-color:var(--txt2)}
+.btn.outline{background:transparent;color:var(--txt2);border-color:var(--bdr2)}
+.btn.outline:hover{color:var(--txt);border-color:var(--txt);background:var(--surf2)}
+.btn.danger{background:transparent;border-color:var(--bdr);color:var(--txt3)}
+.btn.danger:hover{border-color:var(--red);color:var(--red)}
+.btn.small{padding:5px 10px;font-size:0.62rem}
+
+/* Toast */
+.toast{position:fixed;bottom:calc(20px + var(--safe-bottom));left:50%;transform:translateX(-50%);background:var(--surf2);border:1px solid var(--bdr2);border-radius:20px;padding:8px 18px;font-size:0.72rem;color:var(--txt2);z-index:9999;animation:fadeup .2s ease;pointer-events:none;white-space:nowrap}
+.toast.ok{border-color:var(--green);color:var(--green)}
+.toast.err{border-color:var(--red);color:var(--red)}
+@keyframes fadeup{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* Empty state */
+.empty-state{text-align:center;padding:60px 20px;color:var(--txt3);font-size:0.76rem;line-height:1.8}
+
+/* Image upload area */
+.img-upload-area{border:2px dashed var(--bdr2);border-radius:6px;padding:20px;text-align:center;cursor:pointer;color:var(--txt3);font-size:0.72rem;transition:all .15s;margin:8px 0}
+.img-upload-area:hover{border-color:var(--blue);color:var(--txt2)}
+
+/* Mobile */
+@media(max-width:700px){
+  .topbar{height:48px;padding:0 12px}
+  .screen-content{padding:16px}
+  .folder-grid,.notes-grid{padding:14px 16px}
+  .folder-header,.notes-header{padding:16px 16px 0}
+  .editor-sidebar{width:0}
+  .editor-content-wrap{padding:24px 20px}
+  .note-title-input{font-size:1.5rem}
+  .editor-toolbar{padding:6px 10px}
+  .subject-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar" id="topbar">
+    <a class="back-btn" href="index.html">←</a>
+    <div class="breadcrumb" id="breadcrumb">
+      <span class="breadcrumb-item active" onclick="goHome()">Notes</span>
+    </div>
+    <div class="notion-pill"><span class="notion-dot" id="notion-dot"></span>Notion</div>
+    <div id="topbar-actions"></div>
+  </div>
+
+  <div class="main">
+
+    <!-- Screen: Subjects -->
+    <div class="screen active" id="screen-subjects">
+      <div class="screen-content">
+        <div class="screen-hero">
+          <h1>Your Notes</h1>
+          <p>Organise your notes by subject. Click a subject to view its folders and documents.</p>
+        </div>
+        <div class="subject-grid" id="subject-grid">
+          <div class="loading-row"><div class="spinner"></div>Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Screen: Folders -->
+    <div class="screen" id="screen-folders">
+      <div class="folder-header">
+        <h2 id="folders-title">Folders</h2>
+        <p id="folders-sub" style="font-size:0.7rem;color:var(--txt2)"></p>
+      </div>
+      <div style="flex:1;overflow-y:auto">
+        <div class="folder-grid" id="folder-grid"></div>
+      </div>
+    </div>
+
+    <!-- Screen: Notes list -->
+    <div class="screen" id="screen-notes">
+      <div class="notes-header">
+        <h2 id="notes-title">Notes</h2>
+        <p id="notes-sub" style="font-size:0.7rem;color:var(--txt2);margin-top:3px"></p>
+      </div>
+      <div style="flex:1;overflow-y:auto">
+        <div class="notes-grid" id="notes-grid"></div>
+      </div>
+    </div>
+
+    <!-- Screen: Editor -->
+    <div class="screen" id="screen-editor">
+      <div class="editor-wrap">
+        <div class="editor-sidebar" id="editor-sidebar">
+          <div class="editor-sidebar-inner">
+            <div class="editor-sidebar-section">
+              <span class="editor-sidebar-label" id="sidebar-folder-name">Notes</span>
+            </div>
+            <div class="sidebar-note-list" id="sidebar-note-list"></div>
+            <button class="sidebar-new-btn" id="sidebar-new-btn">+ New Note</button>
+          </div>
+        </div>
+        <div class="editor-main">
+          <div class="editor-toolbar" id="editor-toolbar">
+            <button class="tool-btn" title="Heading 1" onclick="execCmd('formatBlock','h1')"><strong>H1</strong></button>
+            <button class="tool-btn" title="Heading 2" onclick="execCmd('formatBlock','h2')"><strong>H2</strong></button>
+            <button class="tool-btn" title="Heading 3" onclick="execCmd('formatBlock','h3')">H3</button>
+            <div class="tool-sep"></div>
+            <button class="tool-btn" title="Bold" onclick="execCmd('bold')"><strong>B</strong></button>
+            <button class="tool-btn" title="Italic" onclick="execCmd('italic')"><em>I</em></button>
+            <button class="tool-btn" title="Underline" onclick="execCmd('underline')"><u>U</u></button>
+            <button class="tool-btn" title="Strikethrough" onclick="execCmd('strikeThrough')"><s>S</s></button>
+            <div class="tool-sep"></div>
+            <button class="tool-btn" title="Highlight" onclick="execHighlight()">▐HL</button>
+            <button class="tool-btn" title="Inline code" onclick="wrapInCode()"><code>{ }</code></button>
+            <div class="tool-sep"></div>
+            <button class="tool-btn" title="Bullet list" onclick="execCmd('insertUnorderedList')">• List</button>
+            <button class="tool-btn" title="Numbered list" onclick="execCmd('insertOrderedList')">1. List</button>
+            <button class="tool-btn" title="Blockquote" onclick="execCmd('formatBlock','blockquote')">" Quote</button>
+            <div class="tool-sep"></div>
+            <button class="tool-btn" title="Info callout" onclick="insertCallout('info')">ℹ️ Info</button>
+            <button class="tool-btn" title="Warning callout" onclick="insertCallout('warning')">⚠️ Warn</button>
+            <button class="tool-btn" title="Success callout" onclick="insertCallout('success')">✅ Note</button>
+            <button class="tool-btn" title="Danger callout" onclick="insertCallout('danger')">🔴 Alert</button>
+            <div class="tool-sep"></div>
+            <button class="tool-btn" title="Horizontal rule" onclick="execCmd('insertHorizontalRule')">― Rule</button>
+            <button class="tool-btn" title="Insert image" onclick="openImageModal()">🖼 Image</button>
+            <div class="tool-sep"></div>
+            <div class="save-status" id="save-status">
+              <div class="save-dot" id="save-dot"></div>
+              <span id="save-label">Ready</span>
+            </div>
+          </div>
+          <div class="editor-content-wrap">
+            <input class="note-title-input" id="note-title" placeholder="Untitled" type="text">
+            <div class="editor" id="editor" contenteditable="true" data-placeholder="Start writing… press / for blocks"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Add Subject Modal -->
+<div class="modal-backdrop" id="modal-subject">
+  <div class="modal">
+    <h3>New Subject</h3>
+    <div class="modal-field"><label>Name</label><input type="text" id="inp-subject-name" placeholder="e.g. Biology"></div>
+    <div class="modal-field">
+      <label>Colour</label>
+      <div class="color-picker" id="subject-color-picker"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn outline small" onclick="closeModal('modal-subject')">Cancel</button>
+      <button class="btn small" id="btn-create-subject">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Folder Modal -->
+<div class="modal-backdrop" id="modal-folder">
+  <div class="modal">
+    <h3>New Folder</h3>
+    <div class="modal-field"><label>Name</label><input type="text" id="inp-folder-name" placeholder="e.g. Lectures"></div>
+    <div class="modal-actions">
+      <button class="btn outline small" onclick="closeModal('modal-folder')">Cancel</button>
+      <button class="btn small" id="btn-create-folder">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-backdrop" id="modal-confirm">
+  <div class="modal">
+    <h3 id="confirm-title">Delete?</h3>
+    <p id="confirm-msg" style="font-size:0.74rem;color:var(--txt2);line-height:1.5;margin-bottom:4px"></p>
+    <div class="modal-actions">
+      <button class="btn outline small" onclick="closeModal('modal-confirm')">Cancel</button>
+      <button class="btn danger small" id="confirm-ok">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Image Modal -->
+<div class="modal-backdrop" id="modal-image">
+  <div class="modal">
+    <h3>Insert Image</h3>
+    <div class="modal-field"><label>Image URL</label><input type="url" id="inp-img-url" placeholder="https://..."></div>
+    <div class="modal-field"><label>Or upload</label>
+      <div class="img-upload-area" id="img-upload-area" onclick="document.getElementById('img-file-input').click()">
+        Click to upload an image
+      </div>
+      <input type="file" id="img-file-input" accept="image/*" style="display:none">
+    </div>
+    <div class="modal-field"><label>Alt text (optional)</label><input type="text" id="inp-img-alt" placeholder="Description"></div>
+    <div class="modal-actions">
+      <button class="btn outline small" onclick="closeModal('modal-image')">Cancel</button>
+      <button class="btn small" id="btn-insert-image">Insert</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const SUBJECTS_DB = '472efc20ac2641d29f776f21af89257e';
+const FOLDERS_DB  = '09da89b23139423181d4c6f715034e9e';
+const NOTES_DB    = 'a738d1a0ba7f4bc5b7756d383bafb97d';
+const SUBJECTS_DS = '87ae6b22-e6d2-4627-a3ad-2a49dd565f5d';
+const FOLDERS_DS  = 'a3395dfc-8786-42f1-8296-9a9c555c34ae';
+const NOTES_DS    = '85bd4f45-837c-4194-a217-c824e2c14bbe';
+const PROXY       = '/api/notion';
+const NOTION_VER  = '2022-06-28';
+
+let NOTION_TOKEN = localStorage.getItem('fc_notion_token') || '';
+const hdr = () => ({ 'Authorization': `Bearer ${NOTION_TOKEN}`, 'Content-Type': 'application/json', 'Notion-Version': NOTION_VER });
+
+async function nPost(path, body) {
+  const r = await fetch(PROXY+`/v1${path}`, { method:'POST', headers:hdr(), body:JSON.stringify(body) });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message || r.status); }
+  return r.json();
+}
+async function nPatch(path, body) {
+  const r = await fetch(PROXY+`/v1${path}`, { method:'PATCH', headers:hdr(), body:JSON.stringify(body) });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message || r.status); }
+  return r.json();
+}
+async function nGet(path) {
+  const r = await fetch(PROXY+`/v1${path}`, { headers:hdr() });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message || r.status); }
+  return r.json();
+}
+async function queryDB(dbId, filter) {
+  let results=[], cursor;
+  do {
+    const body = { page_size:100, sorts:[{timestamp:'created_time',direction:'descending'}] };
+    if (filter) body.filter = filter;
+    if (cursor) body.start_cursor = cursor;
+    const d = await nPost(`/databases/${dbId}/query`, body);
+    results = results.concat(d.results);
+    cursor = d.has_more ? d.next_cursor : undefined;
+  } while (cursor);
+  return results;
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let subjects=[], folders=[], notes=[];
+let currentSubject=null, currentFolder=null, currentNote=null;
+let saveTimer=null;
+let selectedColor = '#6b9fd4';
+let _confirmCb = null;
+
+const SUBJECT_COLORS = ['#6b9fd4','#6abf7b','#d96b6b','#d4a96b','#a78fd4','#d4906b','#6bd4c8','#d46b9f'];
+
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const fmtDate = iso => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) + ' · ' + d.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
+};
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg, type='') {
+  const el = document.createElement('div');
+  el.className = 'toast'+(type?' '+type:''); el.textContent = msg;
+  document.body.appendChild(el); setTimeout(()=>el.remove(), 3000);
+}
+
+// ── Modals ────────────────────────────────────────────────────────────────────
+const openModal  = id => document.getElementById(id).classList.add('open');
+const closeModal = id => document.getElementById(id).classList.remove('open');
+document.querySelectorAll('.modal-backdrop').forEach(bd =>
+  bd.addEventListener('click', e => { if(e.target===bd) bd.classList.remove('open'); }));
+document.getElementById('confirm-ok').addEventListener('click', () => {
+  closeModal('modal-confirm'); if(_confirmCb){_confirmCb();_confirmCb=null;}
+});
+function showConfirm(title, msg, cb) {
+  _confirmCb=cb;
+  document.getElementById('confirm-title').textContent=title;
+  document.getElementById('confirm-msg').textContent=msg;
+  openModal('modal-confirm');
+}
+
+// ── Connection ────────────────────────────────────────────────────────────────
+function setConnected(ok){ document.getElementById('notion-dot').classList.toggle('connected',ok); }
+
+// ── Screens ───────────────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+}
+
+function updateBreadcrumb() {
+  const bc = document.getElementById('breadcrumb');
+  const actions = document.getElementById('topbar-actions');
+  bc.innerHTML = '';
+  actions.innerHTML = '';
+
+  const add = (label, fn, active=false) => {
+    const span = document.createElement('span');
+    span.className = 'breadcrumb-item'+(active?' active':'');
+    span.textContent = label;
+    if (fn) span.addEventListener('click', fn);
+    bc.appendChild(span);
+    if (!active) { const sep=document.createElement('span'); sep.className='breadcrumb-sep'; sep.textContent='/'; bc.appendChild(sep); }
+  };
+
+  if (!currentSubject) {
+    add('Notes', null, true);
+  } else if (!currentFolder) {
+    add('Notes', goHome);
+    add(currentSubject.name, null, true);
+    const btn = document.createElement('button'); btn.className='topbar-btn'; btn.textContent='+ Folder';
+    btn.addEventListener('click', ()=>openModal('modal-folder'));
+    actions.appendChild(btn);
+  } else if (currentNote === null) {
+    add('Notes', goHome);
+    add(currentSubject.name, goToSubject);
+    add(currentFolder.name, null, true);
+    const btn = document.createElement('button'); btn.className='topbar-btn'; btn.textContent='+ Note';
+    btn.addEventListener('click', createNote);
+    actions.appendChild(btn);
+  } else {
+    add('Notes', goHome);
+    add(currentSubject.name, goToSubject);
+    add(currentFolder.name, goToFolder);
+    add(currentNote.title||'Untitled', null, true);
+    const sb = document.createElement('button'); sb.className='topbar-btn'; sb.textContent='⬡ Sidebar';
+    sb.addEventListener('click', toggleSidebar);
+    actions.appendChild(sb);
+  }
+}
+
+function goHome() { currentSubject=null; currentFolder=null; currentNote=null; showScreen('subjects'); updateBreadcrumb(); loadSubjects(); }
+function goToSubject() { currentFolder=null; currentNote=null; showScreen('folders'); updateBreadcrumb(); loadFolders(); }
+function goToFolder() { currentNote=null; showScreen('notes'); updateBreadcrumb(); loadNotes(); }
+
+// ── Load subjects ─────────────────────────────────────────────────────────────
+async function loadSubjects() {
+  const grid = document.getElementById('subject-grid');
+  grid.innerHTML = '<div class="loading-row"><div class="spinner"></div>Loading…</div>';
+  if (!NOTION_TOKEN) { setConnected(false); grid.innerHTML='<div class="empty-state">Add your Notion token in <a href="settings.html" style="color:var(--blue)">Settings</a> to get started.</div>'; return; }
+  try {
+    const pages = await queryDB(SUBJECTS_DB);
+    subjects = pages.map(p => ({
+      id: p.id,
+      name: p.properties?.Name?.title?.[0]?.plain_text || 'Untitled',
+      color: p.properties?.Color?.rich_text?.[0]?.plain_text || '#6b9fd4',
+      created: p.properties?.Created?.created_time || ''
+    }));
+    setConnected(true);
+    renderSubjectGrid();
+  } catch(err) {
+    setConnected(false);
+    grid.innerHTML = `<div class="empty-state">Could not connect to Notion.<br>${esc(err.message)}</div>`;
+    toast('Connection failed', 'err');
+  }
+}
+
+function renderSubjectGrid() {
+  const grid = document.getElementById('subject-grid');
+  grid.innerHTML = '';
+  subjects.forEach(s => {
+    const card = document.createElement('div'); card.className='subject-card';
+    card.style.cssText = `background:${s.color};border-color:${s.color}`;
+    card.innerHTML = `<div><div class="subject-card-name">${esc(s.name)}</div></div>
+      <button class="subject-card-del" title="Delete">✕</button>`;
+    card.addEventListener('click', () => openSubject(s));
+    card.querySelector('.subject-card-del').addEventListener('click', e => { e.stopPropagation(); deleteSubject(s); });
+    grid.appendChild(card);
+  });
+  // Add card
+  const add = document.createElement('div'); add.className='add-subject-card';
+  add.innerHTML = '<div class="add-subject-icon">+</div><div class="add-subject-label">New Subject</div>';
+  add.addEventListener('click', () => openAddSubjectModal());
+  grid.appendChild(add);
+}
+
+function openSubject(s) {
+  currentSubject = s; currentFolder = null; currentNote = null;
+  document.getElementById('folders-title').textContent = s.name;
+  document.getElementById('folders-sub').textContent = `Click a folder to view notes`;
+  showScreen('folders'); updateBreadcrumb(); loadFolders();
+}
+
+// ── Load folders ──────────────────────────────────────────────────────────────
+async function loadFolders() {
+  const grid = document.getElementById('folder-grid');
+  grid.innerHTML = '<div class="loading-row"><div class="spinner"></div>Loading…</div>';
+  try {
+    const pages = await queryDB(FOLDERS_DB, {
+      property: 'Subject', relation: { contains: currentSubject.id }
+    });
+    folders = pages.map(p => ({
+      id: p.id,
+      name: p.properties?.Name?.title?.[0]?.plain_text || 'Untitled',
+      created: p.properties?.Created?.created_time || ''
+    }));
+    renderFolderGrid();
+  } catch(err) { toast('Failed to load folders', 'err'); }
+}
+
+function renderFolderGrid() {
+  const grid = document.getElementById('folder-grid'); grid.innerHTML='';
+  folders.forEach(f => {
+    const card = document.createElement('div'); card.className='folder-card';
+    card.innerHTML = `<div class="folder-card-icon">📁</div>
+      <div class="folder-card-name">${esc(f.name)}</div>
+      <div class="folder-card-count">Folder</div>
+      <button class="folder-card-del" title="Delete">✕</button>`;
+    card.addEventListener('click', () => openFolder(f));
+    card.querySelector('.folder-card-del').addEventListener('click', e=>{ e.stopPropagation(); deleteFolder(f); });
+    grid.appendChild(card);
+  });
+  const add = document.createElement('div'); add.className='add-folder-card';
+  add.innerHTML = '<span style="font-size:1.4rem">+</span><span style="font-size:0.65rem;text-transform:uppercase;letter-spacing:1.5px">New Folder</span>';
+  add.addEventListener('click', ()=>openModal('modal-folder'));
+  grid.appendChild(add);
+}
+
+function openFolder(f) {
+  currentFolder = f; currentNote = null;
+  document.getElementById('notes-title').textContent = f.name;
+  document.getElementById('notes-sub').textContent = `${currentSubject.name} → ${f.name}`;
+  showScreen('notes'); updateBreadcrumb(); loadNotes();
+}
+
+// ── Load notes ────────────────────────────────────────────────────────────────
+async function loadNotes() {
+  const grid = document.getElementById('notes-grid');
+  grid.innerHTML = '<div class="loading-row"><div class="spinner"></div>Loading…</div>';
+  try {
+    const pages = await queryDB(NOTES_DB, {
+      property: 'Folder', relation: { contains: currentFolder.id }
+    });
+    notes = pages.map(p => ({
+      id: p.id,
+      title: p.properties?.Title?.title?.[0]?.plain_text || 'Untitled',
+      preview: p.properties?.Preview?.rich_text?.[0]?.plain_text || '',
+      created: p.properties?.Created?.created_time || '',
+      lastEdited: p.properties?.['Last Edited']?.last_edited_time || ''
+    }));
+    renderNotesGrid(); renderSidebar();
+  } catch(err) { toast('Failed to load notes', 'err'); }
+}
+
+function renderNotesGrid() {
+  const grid = document.getElementById('notes-grid'); grid.innerHTML='';
+  notes.forEach(n => {
+    const card = document.createElement('div'); card.className='note-card';
+    card.innerHTML = `<div class="note-card-title">${esc(n.title||'Untitled')}</div>
+      <div class="note-card-preview">${esc(n.preview||'Empty note…')}</div>
+      <div class="note-card-footer">
+        <div class="note-card-date">Created ${fmtDate(n.created)}</div>
+        ${n.lastEdited?`<div class="note-card-date">Edited ${fmtDate(n.lastEdited)}</div>`:''}
+      </div>
+      <button class="note-card-del" title="Delete">✕</button>`;
+    card.addEventListener('click', ()=>openNote(n));
+    card.querySelector('.note-card-del').addEventListener('click',e=>{e.stopPropagation();deleteNote(n);});
+    grid.appendChild(card);
+  });
+  const add = document.createElement('div'); add.className='add-note-card';
+  add.innerHTML='<span style="font-size:1.4rem">+</span><span style="font-size:0.65rem;text-transform:uppercase;letter-spacing:1.5px">New Note</span>';
+  add.addEventListener('click', createNote);
+  grid.appendChild(add);
+}
+
+function renderSidebar() {
+  const list = document.getElementById('sidebar-note-list'); list.innerHTML='';
+  notes.forEach(n=>{
+    const item=document.createElement('div');item.className='sidebar-note-item'+(currentNote&&currentNote.id===n.id?' active':'');
+    item.textContent=n.title||'Untitled';
+    item.addEventListener('click',()=>openNote(n));
+    list.appendChild(item);
+  });
+  document.getElementById('sidebar-folder-name').textContent=currentFolder?.name||'Notes';
+}
+
+// ── Open note in editor ───────────────────────────────────────────────────────
+async function openNote(n) {
+  currentNote = n;
+  showScreen('editor'); updateBreadcrumb(); renderSidebar();
+  setSaveStatus('ready');
+
+  // Load from localStorage first — fastest and most up to date
+  const local = loadFromLocal(n.id);
+  if (local) {
+    document.getElementById('note-title').value = local.title || n.title || '';
+    document.getElementById('editor').innerHTML = local.html || '';
+    return;
+  }
+
+  // Fall back to Notion blocks
+  document.getElementById('note-title').value = n.title || '';
+  document.getElementById('editor').innerHTML = '<div class="loading-row"><div class="spinner"></div>Loading…</div>';
+  try {
+    const page = await nGet(`/blocks/${n.id}/children`);
+    const html = blocksToHtml(page.results||[]);
+    document.getElementById('editor').innerHTML = html || '';
+  } catch(err) {
+    document.getElementById('editor').innerHTML = '';
+    toast('Could not load note content', 'err');
+  }
+}
+
+function blocksToHtml(blocks) {
+  return blocks.map(b => {
+    const type = b.type;
+    const rich = t => t.map(r => {
+      let s = esc(r.plain_text);
+      if (r.annotations?.bold)          s = `<strong>${s}</strong>`;
+      if (r.annotations?.italic)        s = `<em>${s}</em>`;
+      if (r.annotations?.underline)     s = `<u>${s}</u>`;
+      if (r.annotations?.strikethrough) s = `<s>${s}</s>`;
+      if (r.annotations?.code)          s = `<code>${s}</code>`;
+      if (r.annotations?.color && r.annotations.color!=='default') {
+        const colorMap={'yellow':'var(--amber)','red':'var(--red)','blue':'var(--blue)','green':'var(--green)','purple':'var(--purple)'};
+        s = `<span style="color:${colorMap[r.annotations.color]||r.annotations.color}">${s}</span>`;
+      }
+      if (r.href) s = `<a href="${esc(r.href)}">${s}</a>`;
+      return s;
+    }).join('');
+
+    const getText = key => rich(b[type]?.[key] || []);
+
+    switch(type) {
+      case 'heading_1':    return `<h1>${getText('rich_text')}</h1>`;
+      case 'heading_2':    return `<h2>${getText('rich_text')}</h2>`;
+      case 'heading_3':    return `<h3>${getText('rich_text')}</h3>`;
+      case 'paragraph':    return `<p>${getText('rich_text')||'<br>'}</p>`;
+      case 'bulleted_list_item': return `<ul><li>${getText('rich_text')}</li></ul>`;
+      case 'numbered_list_item': return `<ol><li>${getText('rich_text')}</li></ol>`;
+      case 'quote':        return `<blockquote>${getText('rich_text')}</blockquote>`;
+      case 'code':         return `<pre><code>${esc(b.code?.rich_text?.[0]?.plain_text||'')}</code></pre>`;
+      case 'divider':      return `<hr>`;
+      case 'callout': {
+        const icon = b.callout?.icon?.emoji||'ℹ️';
+        const color = b.callout?.color?.split('_')[0]||'default';
+        const typeMap={'yellow':'warning','red':'danger','green':'success','blue':'info'};
+        const cls = typeMap[color]||'info';
+        return `<div class="callout ${cls}"><div class="callout-icon">${icon}</div><div class="callout-content">${getText('rich_text')}</div></div>`;
+      }
+      case 'image': {
+        const url = b.image?.file?.url || b.image?.external?.url || '';
+        const caption = rich(b.image?.caption||[]);
+        return url ? `<figure><img src="${esc(url)}" alt="${caption||'image'}"><figcaption style="font-size:0.7rem;color:var(--txt3);margin-top:4px">${caption}</figcaption></figure>` : '';
+      }
+      default: return '';
+    }
+  }).join('');
+}
+
+// ── Create note ───────────────────────────────────────────────────────────────
+async function createNote() {
+  try {
+    const page = await nPost('/pages', {
+      parent: { database_id: NOTES_DB },
+      properties: {
+        Title: { title:[{text:{content:'Untitled'}}] },
+        Folder: { relation:[{id:currentFolder.id}] },
+        Subject: { relation:[{id:currentSubject.id}] },
+        Preview: { rich_text:[] }
+      }
+    });
+    const n = { id:page.id, title:'Untitled', preview:'', created:page.created_time, lastEdited:page.last_edited_time };
+    notes.unshift(n);
+    renderNotesGrid(); renderSidebar();
+    openNote(n);
+    toast('Note created ✓','ok');
+  } catch(err) { toast('Failed: '+err.message,'err'); }
+}
+
+// ── Save note ─────────────────────────────────────────────────────────────────
+function setSaveStatus(state) {
+  const dot=document.getElementById('save-dot');
+  const label=document.getElementById('save-label');
+  dot.className='save-dot';
+  if(state==='saving'){dot.classList.add('saving');label.textContent='Saving…';}
+  else if(state==='saved'){dot.classList.add('saved');label.textContent='Saved';}
+  else{label.textContent='Ready';}
+}
+
+function scheduleSave() {
+  setSaveStatus('saving');
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNote, 1500);
+}
+
+// localStorage is primary — Notion sync is secondary
+function saveToLocal(id, title, html) {
+  try { localStorage.setItem('note_'+id, JSON.stringify({title, html, saved: Date.now()})); } catch(e) {}
+}
+function loadFromLocal(id) {
+  try { const d=localStorage.getItem('note_'+id); return d?JSON.parse(d):null; } catch(e){return null;} 
+}
+
+async function saveNote() {
+  if (!currentNote) return;
+  const title   = document.getElementById('note-title').value || 'Untitled';
+  const html    = document.getElementById('editor').innerHTML;
+  const preview = document.getElementById('editor').innerText.slice(0, 200);
+
+  // Always save to localStorage first — instant and reliable
+  saveToLocal(currentNote.id, title, html);
+  currentNote.title = title;
+  currentNote.preview = preview;
+
+  try {
+    // Sync title + preview to Notion (for card grid display)
+    await nPatch(`/pages/${currentNote.id}`, {
+      properties: {
+        Title:   { title:[{text:{content:title}}] },
+        Preview: { rich_text:[{text:{content:preview}}] }
+      }
+    });
+
+    // Sync full content as Notion blocks
+    // Step 1: get all existing block IDs
+    const existing = await nGet(`/blocks/${currentNote.id}/children`);
+    const existingIds = (existing.results || []).map(b => b.id);
+
+    // Step 2: delete each existing block one by one
+    for (const bid of existingIds) {
+      try {
+        await fetch(PROXY + '/v1/blocks/' + bid, { method: 'DELETE', headers: hdr() });
+      } catch(e) { /* best effort — ignore individual failures */ }
+    }
+
+    // Step 3: append new blocks in batches
+    const blocks = htmlToBlocks(html);
+    if (blocks.length > 0) {
+      for (let i = 0; i < blocks.length; i += 100) {
+        await nPost(`/blocks/${currentNote.id}/children`, { children: blocks.slice(i, i + 100) });
+      }
+    }
+
+    setSaveStatus('saved');
+  } catch(err) {
+    // localStorage saved fine — Notion sync failed silently
+    setSaveStatus('saved');
+    console.warn('Notion block sync failed:', err.message);
+  }
+
+  renderSidebar();
+  renderNotesGrid();
+  setTimeout(() => setSaveStatus('ready'), 2000);
+}
+
+function htmlToBlocks(html) {
+  const el = document.createElement('div');
+  el.innerHTML = html;
+  const blocks = [];
+  const rt = text => [{type:'text',text:{content:text}}];
+
+  el.childNodes.forEach(node => {
+    if (node.nodeType===3) { // text
+      const t = node.textContent.trim();
+      if (t) blocks.push({object:'block',type:'paragraph',paragraph:{rich_text:rt(t)}});
+      return;
+    }
+    if (node.nodeType!==1) return;
+    const tag = node.tagName?.toLowerCase();
+    const text = node.innerText||node.textContent||'';
+
+    if(tag==='h1') blocks.push({object:'block',type:'heading_1',heading_1:{rich_text:rt(text)}});
+    else if(tag==='h2') blocks.push({object:'block',type:'heading_2',heading_2:{rich_text:rt(text)}});
+    else if(tag==='h3') blocks.push({object:'block',type:'heading_3',heading_3:{rich_text:rt(text)}});
+    else if(tag==='blockquote') blocks.push({object:'block',type:'quote',quote:{rich_text:rt(text)}});
+    else if(tag==='hr') blocks.push({object:'block',type:'divider',divider:{}});
+    else if(tag==='pre') blocks.push({object:'block',type:'code',code:{rich_text:rt(text),language:'plain text'}});
+    else if(tag==='ul') { node.querySelectorAll('li').forEach(li=>blocks.push({object:'block',type:'bulleted_list_item',bulleted_list_item:{rich_text:rt(li.textContent)}})); }
+    else if(tag==='ol') { node.querySelectorAll('li').forEach(li=>blocks.push({object:'block',type:'numbered_list_item',numbered_list_item:{rich_text:rt(li.textContent)}})); }
+    else if(tag==='div'&&node.classList.contains('callout')) {
+      const content=node.querySelector('.callout-content')?.textContent||'';
+      const icon=node.querySelector('.callout-icon')?.textContent||'ℹ️';
+      blocks.push({object:'block',type:'callout',callout:{rich_text:rt(content),icon:{type:'emoji',emoji:icon}}});
+    }
+    else if(tag==='figure'||tag==='img') {
+      const img=node.tagName==='IMG'?node:node.querySelector('img');
+      if(img?.src) blocks.push({object:'block',type:'image',image:{type:'external',external:{url:img.src}}});
+    }
+    else if(text.trim()) blocks.push({object:'block',type:'paragraph',paragraph:{rich_text:rt(text)}});
+  });
+  return blocks;
+}
+
+// ── Editor events ─────────────────────────────────────────────────────────────
+document.getElementById('editor').addEventListener('input', scheduleSave);
+document.getElementById('note-title').addEventListener('input', scheduleSave);
+
+// ── Editor commands ───────────────────────────────────────────────────────────
+function execCmd(cmd, val) {
+  document.getElementById('editor').focus();
+  document.execCommand(cmd, false, val||null);
+}
+function execHighlight() {
+  document.getElementById('editor').focus();
+  document.execCommand('hiliteColor', false, '#d4a96b55');
+}
+function wrapInCode() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  const code = document.createElement('code');
+  range.surroundContents(code);
+}
+function insertCallout(type) {
+  const icons = { info:'ℹ️', warning:'⚠️', success:'✅', danger:'🔴' };
+  const html = `<div class="callout ${type}"><div class="callout-icon">${icons[type]}</div><div class="callout-content" contenteditable="true">Type your callout text here…</div></div><p><br></p>`;
+  document.getElementById('editor').focus();
+  document.execCommand('insertHTML', false, html);
+  scheduleSave();
+}
+
+function toggleSidebar() {
+  document.getElementById('editor-sidebar').classList.toggle('collapsed');
+}
+
+// ── Image modal ───────────────────────────────────────────────────────────────
+let savedRange = null;
+function openImageModal() {
+  const sel = window.getSelection();
+  if (sel.rangeCount) savedRange = sel.getRangeAt(0).cloneRange();
+  document.getElementById('inp-img-url').value='';
+  document.getElementById('inp-img-alt').value='';
+  openModal('modal-image');
+}
+document.getElementById('img-file-input').addEventListener('change', e => {
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => document.getElementById('inp-img-url').value = ev.target.result;
+  reader.readAsDataURL(file);
+  document.getElementById('img-upload-area').textContent = file.name;
+});
+document.getElementById('btn-insert-image').addEventListener('click', () => {
+  const url = document.getElementById('inp-img-url').value.trim();
+  const alt = document.getElementById('inp-img-alt').value.trim() || 'image';
+  if (!url) { toast('Enter an image URL','err'); return; }
+  closeModal('modal-image');
+  const editor = document.getElementById('editor'); editor.focus();
+  if (savedRange) { const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(savedRange); }
+  document.execCommand('insertHTML', false, `<figure><img src="${esc(url)}" alt="${esc(alt)}"><figcaption style="font-size:0.7rem;color:var(--txt3);margin-top:4px">${esc(alt)}</figcaption></figure><p><br></p>`);
+  scheduleSave();
+});
+
+// ── Add Subject ───────────────────────────────────────────────────────────────
+function openAddSubjectModal() {
+  selectedColor = SUBJECT_COLORS[0];
+  document.getElementById('inp-subject-name').value='';
+  const picker=document.getElementById('subject-color-picker'); picker.innerHTML='';
+  SUBJECT_COLORS.forEach(c=>{
+    const sw=document.createElement('div'); sw.className='color-swatch'+(c===selectedColor?' selected':'');
+    sw.style.background=c; sw.addEventListener('click',()=>{ selectedColor=c; picker.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected')); sw.classList.add('selected'); });
+    picker.appendChild(sw);
+  });
+  openModal('modal-subject');
+  setTimeout(()=>document.getElementById('inp-subject-name').focus(),80);
+}
+document.getElementById('btn-create-subject').addEventListener('click', async()=>{
+  const name=document.getElementById('inp-subject-name').value.trim();
+  if(!name) return;
+  closeModal('modal-subject');
+  try{
+    const page=await nPost('/pages',{parent:{database_id:SUBJECTS_DB},properties:{
+      Name:{title:[{text:{content:name}}]},
+      Color:{rich_text:[{text:{content:selectedColor}}]}
+    }});
+    subjects.unshift({id:page.id,name,color:selectedColor,created:page.created_time});
+    renderSubjectGrid(); toast('Subject created ✓','ok');
+  }catch(err){toast('Failed: '+err.message,'err');}
+});
+document.getElementById('inp-subject-name').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('btn-create-subject').click();});
+
+function deleteSubject(s){
+  showConfirm(`Delete "${s.name}"?`,'This will also delete all its folders and notes in Notion.',async()=>{
+    try{await nPatch(`/pages/${s.id}`,{archived:true});subjects=subjects.filter(x=>x.id!==s.id);renderSubjectGrid();toast('Deleted ✓');}
+    catch(err){toast('Failed','err');}
+  });
+}
+
+// ── Add Folder ────────────────────────────────────────────────────────────────
+document.getElementById('btn-create-folder').addEventListener('click',async()=>{
+  const name=document.getElementById('inp-folder-name').value.trim();
+  if(!name) return;
+  closeModal('modal-folder');
+  try{
+    const page=await nPost('/pages',{parent:{database_id:FOLDERS_DB},properties:{
+      Name:{title:[{text:{content:name}}]},
+      Subject:{relation:[{id:currentSubject.id}]}
+    }});
+    folders.unshift({id:page.id,name,created:page.created_time});
+    renderFolderGrid(); toast('Folder created ✓','ok');
+  }catch(err){toast('Failed: '+err.message,'err');}
+});
+document.getElementById('inp-folder-name').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('btn-create-folder').click();});
+
+function deleteFolder(f){
+  showConfirm(`Delete "${f.name}"?`,'All notes inside will be archived in Notion.',async()=>{
+    try{await nPatch(`/pages/${f.id}`,{archived:true});folders=folders.filter(x=>x.id!==f.id);renderFolderGrid();toast('Deleted ✓');}
+    catch(err){toast('Failed','err');}
+  });
+}
+
+function deleteNote(n){
+  showConfirm(`Delete "${n.title}"?`,'This note will be archived in Notion.',async()=>{
+    try{await nPatch(`/pages/${n.id}`,{archived:true});notes=notes.filter(x=>x.id!==n.id);renderNotesGrid();renderSidebar();if(currentNote?.id===n.id){currentNote=null;showScreen('notes');updateBreadcrumb();}toast('Deleted ✓');}
+    catch(err){toast('Failed','err');}
+  });
+}
+
+// Sidebar new note button
+document.getElementById('sidebar-new-btn').addEventListener('click',createNote);
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+updateBreadcrumb();
+loadSubjects();
+</script>
+</body>
+</html>
