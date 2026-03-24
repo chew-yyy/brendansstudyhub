@@ -400,7 +400,7 @@ const NOTES_DB    = 'a738d1a0ba7f4bc5b7756d383bafb97d';
 const SUBJECTS_DS = '87ae6b22-e6d2-4627-a3ad-2a49dd565f5d';
 const FOLDERS_DS  = 'a3395dfc-8786-42f1-8296-9a9c555c34ae';
 const NOTES_DS    = '85bd4f45-837c-4194-a217-c824e2c14bbe';
-const PROXY       = '/api/notion';
+const PROXY = '/api/notion';
 const NOTION_VER  = '2022-06-28';
 
 let NOTION_TOKEN = localStorage.getItem('fc_notion_token') || '';
@@ -791,47 +791,25 @@ async function saveNote() {
   const html    = document.getElementById('editor').innerHTML;
   const preview = document.getElementById('editor').innerText.slice(0, 200);
 
-  // Always save to localStorage first — instant and reliable
+  // localStorage is the source of truth for note content — instant and reliable
   saveToLocal(currentNote.id, title, html);
   currentNote.title = title;
   currentNote.preview = preview;
 
+  // Only sync title + preview to Notion (for card grid display)
+  // Full rich content lives in localStorage — no block API gymnastics needed
   try {
-    // Sync title + preview to Notion (for card grid display)
     await nPatch(`/pages/${currentNote.id}`, {
       properties: {
         Title:   { title:[{text:{content:title}}] },
         Preview: { rich_text:[{text:{content:preview}}] }
       }
     });
-
-    // Sync full content as Notion blocks
-    // Step 1: get all existing block IDs
-    const existing = await nGet(`/blocks/${currentNote.id}/children`);
-    const existingIds = (existing.results || []).map(b => b.id);
-
-    // Step 2: delete each existing block one by one
-    for (const bid of existingIds) {
-      try {
-        await fetch(PROXY + '/v1/blocks/' + bid, { method: 'DELETE', headers: hdr() });
-      } catch(e) { /* best effort — ignore individual failures */ }
-    }
-
-    // Step 3: append new blocks in batches
-    const blocks = htmlToBlocks(html);
-    if (blocks.length > 0) {
-      for (let i = 0; i < blocks.length; i += 100) {
-        await nPost(`/blocks/${currentNote.id}/children`, { children: blocks.slice(i, i + 100) });
-      }
-    }
-
-    setSaveStatus('saved');
   } catch(err) {
-    // localStorage saved fine — Notion sync failed silently
-    setSaveStatus('saved');
-    console.warn('Notion block sync failed:', err.message);
+    console.warn('Notion sync failed:', err.message);
   }
 
+  setSaveStatus('saved');
   renderSidebar();
   renderNotesGrid();
   setTimeout(() => setSaveStatus('ready'), 2000);
