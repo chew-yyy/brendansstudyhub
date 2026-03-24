@@ -182,6 +182,77 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── /api/calendar/* — Google Calendar proxy ──────────────────────────────
+  if (pathname.startsWith('/api/calendar')) {
+    const GCAL_TOKEN = process.env.GCAL_ACCESS_TOKEN || '';
+
+    function gcalCall(method, gcalPath, body) {
+      return new Promise((resolve, reject) => {
+        const data = body ? JSON.stringify(body) : '';
+        const headers = {
+          'Authorization': `Bearer ${GCAL_TOKEN}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        };
+        if (data) headers['Content-Length'] = Buffer.byteLength(data, 'utf8').toString();
+        const req = https.request({ hostname: 'www.googleapis.com', path: gcalPath, method, headers }, res => {
+          let out = '';
+          res.on('data', chunk => { out += chunk; });
+          res.on('end', () => {
+            try { resolve({ status: res.statusCode, body: JSON.parse(out) }); }
+            catch(e) { resolve({ status: res.statusCode, body: {} }); }
+          });
+        });
+        req.on('error', reject);
+        if (data) req.write(data);
+        req.end();
+      });
+    }
+
+    // GET /api/calendar/events?timeMin=...&timeMax=...
+    if (pathname === '/api/calendar/events' && method === 'GET') {
+      const { timeMin, timeMax } = parsed.query;
+      const qs = new URLSearchParams({ singleEvents: 'true', orderBy: 'startTime', maxResults: '50', timeMin: timeMin||new Date().toISOString(), timeMax: timeMax||(new Date(Date.now()+30*86400000).toISOString()) }).toString();
+      const r = await gcalCall('GET', `/calendar/v3/calendars/primary/events?${qs}`, null);
+      const events = (r.body.items || []).map(ev => ({
+        id: ev.id,
+        summary: ev.summary || '',
+        description: ev.description || '',
+        location: ev.location || '',
+        start: ev.start,
+        end: ev.end,
+        colorHex: ev.colorId ? ({1:'#7986cb',2:'#33b679',3:'#8e24aa',4:'#e67c73',5:'#f6c026',6:'#f5511d',7:'#039be5',8:'#616161',9:'#3f51b5',10:'#0b8043',11:'#d50000'}[ev.colorId] || '#4285f4') : '#4285f4',
+        allDay: !ev.start?.dateTime
+      }));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ events }));
+      return;
+    }
+
+    // POST /api/calendar/create
+    if (pathname === '/api/calendar/create' && method === 'POST') {
+      const body = await readBody(req);
+      let eventData;
+      try { eventData = JSON.parse(body); } catch(e) { res.writeHead(400); res.end('Bad JSON'); return; }
+      const r = await gcalCall('POST', '/calendar/v3/calendars/primary/events', eventData);
+      res.writeHead(r.status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(r.body));
+      return;
+    }
+
+    // DELETE /api/calendar/delete?eventId=...
+    if (pathname === '/api/calendar/delete' && method === 'DELETE') {
+      const { eventId } = parsed.query;
+      if (!eventId) { res.writeHead(400); res.end('Missing eventId'); return; }
+      const r = await gcalCall('DELETE', `/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}`, null);
+      res.writeHead(r.status === 204 ? 200 : r.status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    res.writeHead(404); res.end('Not found'); return;
+  }
+
   // ── /api/notion/* ──────────────────────────────────────────────────────────
   if (pathname.startsWith('/api/notion')) {
     const notionPath = pathname.replace('/api/notion', '') || '/';
