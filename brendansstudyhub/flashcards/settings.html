@@ -175,6 +175,15 @@ html,body{min-height:100%;background:var(--bg);color:var(--txt);font-family:'IBM
           <a href="https://www.notion.so/08d929f3e42f45f88938e2a204714753" target="_blank" class="btn outline small" style="text-decoration:none">Open ↗</a>
         </div>
       </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-label">Daily Planner Database</div>
+          <div class="setting-sub" id="db5-id" style="font-size:0.58rem;font-family:'IBM Plex Mono',monospace"></div>
+        </div>
+        <div class="setting-right">
+          <a href="https://www.notion.so/63ab2daeab1b46c3a4a8cdc10cc0e947" target="_blank" class="btn outline small" style="text-decoration:none">Open ↗</a>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -299,12 +308,14 @@ const DECKS_DB  = '8503ce7c7c4443b88522a448dd73c16c';
 const CARDS_DB  = 'cdcbe2815b564061a3d418a01b4935ca';
 const TODOS_DB    = 'df8cd3859a5e4920b5502969ff80161a';
 const PLANNER_DB  = '08d929f3e42f45f88938e2a204714753';
+  const DAILY_DB    = '63ab2daeab1b46c3a4a8cdc10cc0e947';
 
 // ── DB IDs ────────────────────────────────────────────────────────────────────
 document.getElementById('db1-id').textContent = DECKS_DB;
 document.getElementById('db2-id').textContent = CARDS_DB;
 document.getElementById('db3-id').textContent = TODOS_DB;
   document.getElementById('db4-id').textContent = PLANNER_DB;
+  document.getElementById('db5-id').textContent = DAILY_DB;
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function toast(msg, type='') {
