@@ -796,15 +796,14 @@ async function saveNote() {
   currentNote.title = title;
   currentNote.preview = preview;
 
-  // Only sync title + preview to Notion (for card grid display)
-  // Full rich content lives in localStorage — no block API gymnastics needed
+  // Send to server-side /api/save-note — handles full Notion block sync
   try {
-    await nPatch(`/pages/${currentNote.id}`, {
-      properties: {
-        Title:   { title:[{text:{content:title}}] },
-        Preview: { rich_text:[{text:{content:preview}}] }
-      }
+    const res = await fetch('/api/save-note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pageId: currentNote.id, title, html, preview, token: NOTION_TOKEN })
     });
+    if (!res.ok) throw new Error(await res.text());
   } catch(err) {
     console.warn('Notion sync failed:', err.message);
   }
