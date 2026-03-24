@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>To-Do</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#242424; --surf:#2e2e2e; --surf2:#363636; --surf3:#404040;
+  --bdr:#484848; --bdr2:#585858;
+  --txt:#f0f0f0; --txt2:#a0a0a0; --txt3:#606060;
+  --acc:#e8e8e8; --green:#6abf7b; --red:#d96b6b; --blue:#6b9fd4; --amber:#d4a96b;
+  --shadow:rgba(0,0,0,0.5);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:'IBM Plex Mono',monospace}
+
+/* ── Shell ── */
+.shell{height:100vh;display:flex;flex-direction:column}
+
+/* ── Topbar ── */
+.topbar{height:52px;border-bottom:1px solid var(--bdr);padding:0 20px;display:flex;align-items:center;gap:12px;background:var(--surf);flex-shrink:0}
+.back-btn{background:none;border:1px solid var(--bdr);border-radius:3px;color:var(--txt2);cursor:pointer;font-size:0.8rem;width:32px;height:32px;display:flex;align-items:center;justify-content:center;transition:all .15s;text-decoration:none;flex-shrink:0}
+.back-btn:hover{border-color:var(--bdr2);color:var(--txt)}
+.topbar-title{font-family:'Syne',sans-serif;font-size:0.9rem;font-weight:700;flex:1}
+.notion-pill{display:flex;align-items:center;gap:5px;font-size:0.57rem;color:var(--txt3);letter-spacing:1px;text-transform:uppercase}
+.notion-dot{width:5px;height:5px;border-radius:50%;background:var(--bdr2);transition:background .3s}
+.notion-dot.connected{background:var(--green)}
+
+/* ── Filter tabs ── */
+.filter-bar{padding:12px 20px;display:flex;gap:6px;border-bottom:1px solid var(--bdr);background:var(--surf);flex-shrink:0;overflow-x:auto;scrollbar-width:none}
+.filter-bar::-webkit-scrollbar{display:none}
+.filter-chip{font-family:'IBM Plex Mono',monospace;font-size:0.67rem;padding:4px 12px;border-radius:20px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt2);cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0}
+.filter-chip:hover{border-color:var(--bdr2);color:var(--txt)}
+.filter-chip.active{background:var(--txt);color:var(--bg);border-color:var(--txt);font-weight:500}
+
+/* ── Add task bar ── */
+.add-bar{padding:12px 20px;border-bottom:1px solid var(--bdr);background:var(--surf);flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.add-input{font-family:'IBM Plex Mono',monospace;font-size:0.78rem;padding:8px 12px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt);border-radius:3px;outline:none;transition:border-color .15s;flex:1;min-width:160px;-webkit-appearance:none}
+.add-input:focus{border-color:var(--blue)}
+.add-input::placeholder{color:var(--txt3)}
+.add-extras{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.priority-sel{font-family:'IBM Plex Mono',monospace;font-size:0.67rem;padding:6px 10px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt2);border-radius:3px;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;padding-right:22px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23606060'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+.priority-sel option{background:var(--surf2)}
+.date-inp{font-family:'IBM Plex Mono',monospace;font-size:0.67rem;padding:6px 10px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt2);border-radius:3px;outline:none;-webkit-appearance:none;appearance:none;cursor:pointer}
+.date-inp::-webkit-calendar-picker-indicator{filter:invert(.4)}
+.add-btn{font-family:'IBM Plex Mono',monospace;font-size:0.68rem;letter-spacing:1px;text-transform:uppercase;padding:8px 14px;border:1px solid var(--acc);background:var(--acc);color:var(--bg);cursor:pointer;border-radius:2px;transition:all .15s;font-weight:500;white-space:nowrap}
+.add-btn:hover{background:var(--txt2);border-color:var(--txt2)}
+.add-btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── Task list ── */
+.task-scroll{flex:1;overflow-y:auto;padding:16px 20px;-webkit-overflow-scrolling:touch}
+
+.group-label{font-size:0.58rem;text-transform:uppercase;letter-spacing:2px;color:var(--txt3);margin-bottom:8px;margin-top:18px;padding-left:2px}
+.group-label:first-child{margin-top:0}
+
+.task-list{display:flex;flex-direction:column;gap:5px;margin-bottom:6px}
+
+.task-item{background:var(--surf);border:1px solid var(--bdr);border-radius:3px;padding:10px 12px;display:flex;align-items:flex-start;gap:10px;transition:border-color .15s,opacity .2s}
+.task-item:hover{border-color:var(--bdr2)}
+.task-item.done{opacity:.45}
+
+/* Checkbox */
+.task-check{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--bdr2);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;margin-top:1px;background:none}
+.task-check:hover{border-color:var(--green)}
+.task-check.checked{background:var(--green);border-color:var(--green)}
+.task-check.checked::after{content:'✓';font-size:0.65rem;color:var(--bg);font-weight:700}
+
+.task-body{flex:1;min-width:0}
+.task-name{font-size:0.78rem;color:var(--txt);line-height:1.4;transition:color .15s}
+.task-item.done .task-name{text-decoration:line-through;color:var(--txt3)}
+.task-meta{display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap}
+.priority-tag{font-size:0.58rem;text-transform:uppercase;letter-spacing:1px;padding:1px 7px;border-radius:3px;border:1px solid}
+.p-high{color:var(--red);border-color:var(--red);background:rgba(217,107,107,.08)}
+.p-medium{color:var(--amber);border-color:var(--amber);background:rgba(212,169,107,.08)}
+.p-low{color:var(--txt3);border-color:var(--bdr)}
+.due-tag{font-size:0.6rem;color:var(--txt3)}
+.due-overdue{color:var(--red)}
+
+.task-del{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:0.82rem;padding:2px 4px;transition:color .15s;flex-shrink:0;margin-top:1px;line-height:1}
+.task-del:hover{color:var(--red)}
+
+/* ── Empty state ── */
+.empty{text-align:center;padding:60px 20px;color:var(--txt3);font-size:0.76rem;line-height:1.7}
+
+/* ── Stats strip ── */
+.stats-strip{border-top:1px solid var(--bdr);background:var(--surf);padding:8px 20px;display:flex;gap:20px;flex-shrink:0;padding-bottom:calc(8px + var(--safe-bottom))}
+.strip-stat{display:flex;flex-direction:column;gap:1px}
+.strip-val{font-family:'Syne',sans-serif;font-size:0.9rem;font-weight:700}
+.strip-lbl{font-size:0.55rem;text-transform:uppercase;letter-spacing:1px;color:var(--txt3)}
+
+/* ── Modal ── */
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:flex-end;justify-content:center}
+.modal-backdrop.open{display:flex}
+.modal{background:var(--surf);border:1px solid var(--bdr2);border-radius:10px 10px 0 0;padding:20px 20px calc(20px + var(--safe-bottom));width:100%;max-width:480px;box-shadow:0 -8px 32px var(--shadow);animation:slideup .22s ease}
+@keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal h3{font-family:'Syne',sans-serif;font-size:0.9rem;font-weight:700;margin-bottom:14px}
+.modal-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}
+@media(min-width:681px){
+  .modal-backdrop{align-items:center}
+  .modal{border-radius:6px;max-width:400px;padding:22px 24px;animation:fadein .18s ease}
+  @keyframes fadein{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+}
+
+.btn{font-family:'IBM Plex Mono',monospace;font-size:0.67rem;letter-spacing:1.5px;text-transform:uppercase;padding:7px 14px;border:1px solid var(--acc);background:var(--acc);color:var(--bg);cursor:pointer;border-radius:2px;transition:all .15s;white-space:nowrap;font-weight:500}
+.btn:hover{background:var(--txt2);border-color:var(--txt2)}
+.btn.outline{background:transparent;color:var(--txt2);border-color:var(--bdr2)}
+.btn.outline:hover{color:var(--txt);border-color:var(--txt);background:var(--surf2)}
+.btn.danger{background:transparent;border-color:var(--bdr);color:var(--txt3)}
+.btn.danger:hover{border-color:var(--red);color:var(--red)}
+.btn.small{padding:5px 10px;font-size:0.62rem}
+
+/* ── Edit modal ── */
+.edit-modal .field{margin-bottom:12px}
+.edit-modal label{font-size:0.58rem;text-transform:uppercase;letter-spacing:2px;color:var(--txt3);display:block;margin-bottom:5px}
+.edit-modal input{font-family:'IBM Plex Mono',monospace;font-size:0.8rem;padding:8px 11px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt);border-radius:3px;outline:none;width:100%;transition:border-color .15s;-webkit-appearance:none}
+.edit-modal input:focus{border-color:var(--blue)}
+.priority-btns{display:flex;gap:6px}
+.p-btn{font-family:'IBM Plex Mono',monospace;font-size:0.65rem;padding:5px 12px;border-radius:20px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt2);cursor:pointer;transition:all .15s;flex:1;text-align:center}
+.p-btn:hover{border-color:var(--bdr2);color:var(--txt)}
+.p-btn.active-high{background:rgba(217,107,107,.15);border-color:var(--red);color:var(--red)}
+.p-btn.active-medium{background:rgba(212,169,107,.15);border-color:var(--amber);color:var(--amber)}
+.p-btn.active-low{background:var(--surf3);border-color:var(--bdr2);color:var(--txt2)}
+.p-btn.active-none{background:var(--surf3);border-color:var(--bdr2);color:var(--txt2)}
+
+/* task name clickable */
+.task-name{cursor:pointer}
+.task-name:hover{color:var(--acc)}
+.task-item.done .task-name{cursor:default}
+.task-item.done .task-name:hover{color:var(--txt3)}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:calc(20px + var(--safe-bottom));left:50%;transform:translateX(-50%);background:var(--surf2);border:1px solid var(--bdr2);border-radius:20px;padding:8px 18px;font-size:0.72rem;color:var(--txt2);z-index:9999;animation:fadeup .2s ease;pointer-events:none;white-space:nowrap}
+.toast.err{border-color:var(--red);color:var(--red)}
+@keyframes fadeup{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* ── Loading ── */
+.loading-row{display:flex;align-items:center;gap:10px;padding:20px;color:var(--txt3);font-size:0.72rem}
+.spinner{width:13px;height:13px;border:2px solid var(--bdr);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Mobile tweaks */
+@media(max-width:600px){
+  .topbar{height:48px;padding:0 14px}
+  .add-bar{padding:10px 14px}
+  .filter-bar{padding:10px 14px}
+  .task-scroll{padding:12px 14px}
+  .stats-strip{padding:8px 14px;padding-bottom:calc(8px + var(--safe-bottom))}
+  .add-extras{width:100%;justify-content:space-between}
+  .priority-sel,.date-inp{flex:1}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar">
+    <a class="back-btn" href="index.html" title="Home">←</a>
+    <div class="topbar-title">To-Do</div>
+    <div class="notion-pill"><span class="notion-dot" id="notion-dot"></span>Notion</div>
+  </div>
+
+  <div class="filter-bar">
+    <button class="filter-chip active" data-filter="all">All</button>
+    <button class="filter-chip" data-filter="active">Active</button>
+    <button class="filter-chip" data-filter="done">Done</button>
+    <button class="filter-chip" data-filter="high">High</button>
+    <button class="filter-chip" data-filter="medium">Medium</button>
+    <button class="filter-chip" data-filter="low">Low</button>
+  </div>
+
+  <div class="add-bar">
+    <input class="add-input" id="inp-task" placeholder="Add a task…" type="text">
+    <div class="add-extras">
+      <select class="priority-sel" id="inp-priority">
+        <option value="">Priority</option>
+        <option value="High">High</option>
+        <option value="Medium">Medium</option>
+        <option value="Low">Low</option>
+      </select>
+      <input class="date-inp" id="inp-due" type="date" title="Due date">
+      <button class="add-btn" id="btn-add-task">Add</button>
+    </div>
+  </div>
+
+  <div class="task-scroll" id="task-scroll">
+    <div class="loading-row"><div class="spinner"></div>Loading…</div>
+  </div>
+
+  <div class="stats-strip">
+    <div class="strip-stat"><div class="strip-val" id="stat-total">—</div><div class="strip-lbl">Total</div></div>
+    <div class="strip-stat"><div class="strip-val" id="stat-done" style="color:var(--green)">—</div><div class="strip-lbl">Done</div></div>
+    <div class="strip-stat"><div class="strip-val" id="stat-left" style="color:var(--amber)">—</div><div class="strip-lbl">Remaining</div></div>
+    <div class="strip-stat"><div class="strip-val" id="stat-overdue" style="color:var(--red)">—</div><div class="strip-lbl">Overdue</div></div>
+  </div>
+
+</div>
+
+<!-- Edit modal -->
+<div class="modal-backdrop" id="modal-edit">
+  <div class="modal edit-modal">
+    <h3>Edit Task</h3>
+    <div class="field">
+      <label>Task Name</label>
+      <input type="text" id="edit-name" placeholder="Task name…">
+    </div>
+    <div class="field">
+      <label>Priority</label>
+      <div class="priority-btns">
+        <button class="p-btn" data-p="">None</button>
+        <button class="p-btn" data-p="High">High</button>
+        <button class="p-btn" data-p="Medium">Medium</button>
+        <button class="p-btn" data-p="Low">Low</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn outline small" id="edit-cancel">Cancel</button>
+      <button class="btn small" id="edit-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div class="modal-backdrop" id="modal-confirm">
+  <div class="modal">
+    <h3 id="confirm-title">Delete task?</h3>
+    <p id="confirm-msg" style="font-size:0.73rem;color:var(--txt2);line-height:1.5;margin-bottom:4px"></p>
+    <div class="modal-actions">
+      <button class="btn outline small" id="confirm-cancel">Cancel</button>
+      <button class="btn danger small" id="confirm-ok">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const TODOS_DB = 'df8cd3859a5e4920b5502969ff80161a';
+const NOTION_VERSION = '2022-06-28';
+const PROXY = '/api/notion';
+
+// ── Token ─────────────────────────────────────────────────────────────────────
+let NOTION_TOKEN = localStorage.getItem('fc_notion_token') || '';
+const getHeaders = () => ({
+  'Authorization': `Bearer ${NOTION_TOKEN}`,
+  'Content-Type': 'application/json',
+  'Notion-Version': NOTION_VERSION
+});
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function notionPost(path, body) {
+  const res = await fetch(PROXY + `/v1${path}`, { method:'POST', headers:getHeaders(), body:JSON.stringify(body) });
+  if (!res.ok) { const e = await res.json(); throw new Error(e.message || res.status); }
+  return res.json();
+}
+async function notionPatch(path, body) {
+  const res = await fetch(PROXY + `/v1${path}`, { method:'PATCH', headers:getHeaders(), body:JSON.stringify(body) });
+  if (!res.ok) { const e = await res.json(); throw new Error(e.message || res.status); }
+  return res.json();
+}
+async function queryDB(dbId) {
+  let results=[], cursor;
+  do {
+    const body = { page_size:100, sorts:[{property:'Done',direction:'ascending'},{timestamp:'created_time',direction:'descending'}] };
+    if (cursor) body.start_cursor = cursor;
+    const data = await notionPost(`/databases/${dbId}/query`, body);
+    results = results.concat(data.results);
+    cursor = data.has_more ? data.next_cursor : undefined;
+  } while (cursor);
+  return results;
+}
+
+// ── Parse ─────────────────────────────────────────────────────────────────────
+function parseTask(p) {
+  return {
+    id: p.id,
+    name: p.properties?.Task?.title?.[0]?.plain_text || '',
+    done: p.properties?.Done?.checkbox || false,
+    priority: p.properties?.Priority?.select?.name || '',
+    due: p.properties?.Due?.date?.start || null,
+    created: p.properties?.Created?.created_time || ''
+  };
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let tasks = [];
+let activeFilter = 'all';
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let editingTaskId = null;
+let editingPriority = '';
+const today = () => new Date().toISOString().split('T')[0];
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg, err=false) {
+  const el = document.createElement('div');
+  el.className='toast'+(err?' err':''); el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 3000);
+}
+
+// ── Confirm ───────────────────────────────────────────────────────────────────
+let _cb = null;
+function showConfirm(title, msg, onOk) {
+  _cb=onOk;
+  document.getElementById('confirm-title').textContent=title;
+  document.getElementById('confirm-msg').textContent=msg;
+  document.getElementById('modal-confirm').classList.add('open');
+}
+document.getElementById('confirm-cancel').addEventListener('click',()=>document.getElementById('modal-confirm').classList.remove('open'));
+document.getElementById('confirm-ok').addEventListener('click',()=>{
+  document.getElementById('modal-confirm').classList.remove('open');
+  if(_cb){_cb();_cb=null;}
+});
+document.getElementById('modal-confirm').addEventListener('click',e=>{
+  if(e.target===document.getElementById('modal-confirm')) document.getElementById('modal-confirm').classList.remove('open');
+});
+
+// ── Connection ────────────────────────────────────────────────────────────────
+function setConnected(ok) {
+  document.getElementById('notion-dot').classList.toggle('connected', ok);
+}
+
+// ── Filter chips ──────────────────────────────────────────────────────────────
+document.querySelectorAll('.filter-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    activeFilter = chip.dataset.filter;
+    renderTasks();
+  });
+});
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function getFiltered() {
+  switch(activeFilter) {
+    case 'active':   return tasks.filter(t=>!t.done);
+    case 'done':     return tasks.filter(t=>t.done);
+    case 'high':     return tasks.filter(t=>t.priority==='High');
+    case 'medium':   return tasks.filter(t=>t.priority==='Medium');
+    case 'low':      return tasks.filter(t=>t.priority==='Low');
+    default:         return tasks;
+  }
+}
+
+function isOverdue(task) {
+  return task.due && !task.done && task.due < today();
+}
+
+function renderTasks() {
+  const scroll = document.getElementById('task-scroll');
+  const filtered = getFiltered();
+
+  // Update stats
+  const total = tasks.length;
+  const done  = tasks.filter(t=>t.done).length;
+  const left  = total - done;
+  const over  = tasks.filter(isOverdue).length;
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-done').textContent  = done;
+  document.getElementById('stat-left').textContent  = left;
+  document.getElementById('stat-overdue').textContent = over;
+
+  scroll.innerHTML = '';
+
+  if (!filtered.length) {
+    scroll.innerHTML = `<div class="empty">No tasks here.<br>Add one above to get started.</div>`;
+    return;
+  }
+
+  // Group: active then done
+  const active = filtered.filter(t=>!t.done);
+  const done_  = filtered.filter(t=>t.done);
+
+  const render = (list, label) => {
+    if (!list.length) return;
+    if (label) {
+      const lbl = document.createElement('div');
+      lbl.className='group-label'; lbl.textContent=label;
+      scroll.appendChild(lbl);
+    }
+    const ul = document.createElement('div'); ul.className='task-list';
+    list.forEach(task => {
+      const item = document.createElement('div');
+      item.className='task-item'+(task.done?' done':'');
+
+      // Checkbox
+      const chk = document.createElement('button');
+      chk.className='task-check'+(task.done?' checked':'');
+      chk.title = task.done ? 'Mark incomplete' : 'Mark complete';
+      chk.addEventListener('click', ()=>toggleTask(task.id, !task.done));
+
+      // Body
+      const body = document.createElement('div'); body.className='task-body';
+      const name = document.createElement('div'); name.className='task-name'; name.textContent=task.name;
+      if (!task.done) name.addEventListener('click', () => openEditModal(task.id));
+      body.appendChild(name);
+
+      // Meta
+      const meta = document.createElement('div'); meta.className='task-meta';
+      if (task.priority) {
+        const pt = document.createElement('span');
+        pt.className='priority-tag '+(task.priority==='High'?'p-high':task.priority==='Medium'?'p-medium':'p-low');
+        pt.textContent=task.priority;
+        if (!task.done) pt.addEventListener('click', () => openEditModal(task.id));
+        meta.appendChild(pt);
+      }
+      if (task.due) {
+        const dt = document.createElement('span');
+        dt.className='due-tag'+(isOverdue(task)?' due-overdue':'');
+        dt.textContent = (isOverdue(task)?'Overdue · ':'')+formatDate(task.due);
+        meta.appendChild(dt);
+      }
+      if (meta.children.length) body.appendChild(meta);
+
+      // Delete
+      const del = document.createElement('button'); del.className='task-del'; del.textContent='✕';
+      del.addEventListener('click', ()=>deleteTask(task.id, task.name));
+
+      item.appendChild(chk); item.appendChild(body); item.appendChild(del);
+      ul.appendChild(item);
+    });
+    scroll.appendChild(ul);
+  };
+
+  if (activeFilter==='all' || activeFilter==='active' || activeFilter==='done') {
+    if (active.length) render(active, done_.length ? 'Active' : null);
+    if (done_.length)  render(done_,  active.length ? 'Completed' : null);
+  } else {
+    render(filtered, null);
+  }
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  const [y,m,day] = d.split('-');
+  return `${parseInt(day)} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m)-1]} ${y}`;
+}
+
+// ── Load ──────────────────────────────────────────────────────────────────────
+async function loadAll() {
+  if (!NOTION_TOKEN) {
+    setConnected(false);
+    document.getElementById('task-scroll').innerHTML = '<div class="empty">No Notion token found.<br>Add your token in the FlashCards app Settings.</div>';
+    return;
+  }
+  document.getElementById('task-scroll').innerHTML = '<div class="loading-row"><div class="spinner"></div>Loading from Notion…</div>';
+  try {
+    const pages = await queryDB(TODOS_DB);
+    tasks = pages.map(parseTask);
+    setConnected(true); renderTasks(); toast('Synced ✓');
+  } catch(err) {
+    setConnected(false);
+    document.getElementById('task-scroll').innerHTML = '<div class="empty">Could not connect to Notion.<br>Make sure your integration has access to the Todos database.</div>';
+    toast('Connection failed', true);
+  }
+}
+
+// ── Add ───────────────────────────────────────────────────────────────────────
+document.getElementById('btn-add-task').addEventListener('click', addTask);
+document.getElementById('inp-task').addEventListener('keydown', e=>{ if(e.key==='Enter') addTask(); });
+
+async function addTask() {
+  const name = document.getElementById('inp-task').value.trim();
+  if (!name) return;
+  const priority = document.getElementById('inp-priority').value;
+  const due      = document.getElementById('inp-due').value;
+  const btn = document.getElementById('btn-add-task'); btn.disabled=true; btn.textContent='…';
+  try {
+    const props = {
+      Task: { title:[{ text:{content:name} }] },
+      Done: { checkbox: false }
+    };
+    if (priority) props.Priority = { select:{name:priority} };
+    if (due)      props.Due      = { date:{start:due} };
+    const page = await notionPost('/pages', { parent:{database_id:TODOS_DB}, properties:props });
+    tasks.unshift(parseTask(page));
+    document.getElementById('inp-task').value='';
+    document.getElementById('inp-priority').value='';
+    document.getElementById('inp-due').value='';
+    renderTasks(); toast('Task added ✓');
+  } catch(err) { toast('Failed: '+err.message, true); }
+  btn.disabled=false; btn.textContent='Add';
+}
+
+// ── Toggle ────────────────────────────────────────────────────────────────────
+async function toggleTask(id, done) {
+  const task = tasks.find(t=>t.id===id);
+  if (!task) return;
+  task.done = done; renderTasks(); // optimistic
+  try {
+    await notionPatch(`/pages/${id}`, { properties:{ Done:{checkbox:done} } });
+  } catch(err) { task.done=!done; renderTasks(); toast('Failed to update', true); }
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+function deleteTask(id, name) {
+  showConfirm('Delete task?', `"${name}"`, async () => {
+    try {
+      await notionPatch(`/pages/${id}`, { archived:true });
+      tasks = tasks.filter(t=>t.id!==id);
+      renderTasks(); toast('Task deleted ✓');
+    } catch(err) { toast('Failed: '+err.message, true); }
+  });
+}
+
+// ── Edit ──────────────────────────────────────────────────────────────────────
+function openEditModal(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  editingTaskId = id;
+  editingPriority = task.priority || '';
+  document.getElementById('edit-name').value = task.name;
+  updatePriorityBtns(editingPriority);
+  document.getElementById('modal-edit').classList.add('open');
+  setTimeout(() => document.getElementById('edit-name').focus(), 50);
+}
+
+function updatePriorityBtns(p) {
+  document.querySelectorAll('.p-btn').forEach(btn => {
+    const val = btn.dataset.p;
+    btn.className = 'p-btn';
+    if (val === p) {
+      if (val === 'High')   btn.classList.add('active-high');
+      else if (val === 'Medium') btn.classList.add('active-medium');
+      else if (val === 'Low')    btn.classList.add('active-low');
+      else                        btn.classList.add('active-none');
+    }
+  });
+}
+
+document.querySelectorAll('.p-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    editingPriority = btn.dataset.p;
+    updatePriorityBtns(editingPriority);
+  });
+});
+
+document.getElementById('edit-cancel').addEventListener('click', () => document.getElementById('modal-edit').classList.remove('open'));
+document.getElementById('modal-edit').addEventListener('click', e => { if (e.target === document.getElementById('modal-edit')) document.getElementById('modal-edit').classList.remove('open'); });
+document.getElementById('edit-name').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('edit-save').click(); });
+
+document.getElementById('edit-save').addEventListener('click', async () => {
+  const newName = document.getElementById('edit-name').value.trim();
+  if (!newName) return;
+  const task = tasks.find(t => t.id === editingTaskId);
+  if (!task) return;
+  document.getElementById('modal-edit').classList.remove('open');
+  const oldName = task.name;
+  const oldPriority = task.priority;
+  task.name = newName;
+  task.priority = editingPriority;
+  renderTasks(); // optimistic
+  try {
+    const props = {
+      Task: { title: [{ text: { content: newName } }] },
+      Priority: editingPriority ? { select: { name: editingPriority } } : { select: null }
+    };
+    await notionPatch(`/pages/${task.id}`, { properties: props });
+    toast('Task updated ✓');
+  } catch(err) {
+    task.name = oldName; task.priority = oldPriority;
+    renderTasks(); toast('Failed: ' + err.message, true);
+  }
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadAll();
+</script>
+</body>
+</html>

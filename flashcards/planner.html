@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#242424; --surf:#2e2e2e; --surf2:#363636; --surf3:#404040;
+  --bdr:#484848; --bdr2:#585858;
+  --txt:#f0f0f0; --txt2:#a0a0a0; --txt3:#606060;
+  --acc:#e8e8e8; --green:#6abf7b; --red:#d96b6b; --blue:#6b9fd4; --amber:#d4a96b; --purple:#a78fd4; --orange:#d4906b;
+  --shadow:rgba(0,0,0,0.5);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+  --topbar-h:52px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:'IBM Plex Mono',monospace}
+.shell{height:100vh;display:flex;flex-direction:column}
+
+/* ── Topbar ── */
+.topbar{height:var(--topbar-h);border-bottom:1px solid var(--bdr);padding:0 16px;display:flex;align-items:center;gap:10px;background:var(--surf);flex-shrink:0}
+.back-btn{background:none;border:1px solid var(--bdr);border-radius:3px;color:var(--txt2);font-size:0.8rem;width:32px;height:32px;display:flex;align-items:center;justify-content:center;transition:all .15s;text-decoration:none;flex-shrink:0}
+.back-btn:hover{border-color:var(--bdr2);color:var(--txt)}
+.topbar-title{font-family:'Syne',sans-serif;font-size:0.9rem;font-weight:700;flex:1}
+.notion-pill{display:flex;align-items:center;gap:5px;font-size:0.57rem;color:var(--txt3);letter-spacing:1px;text-transform:uppercase}
+.notion-dot{width:5px;height:5px;border-radius:50%;background:var(--bdr2);transition:background .3s}
+.notion-dot.connected{background:var(--green)}
+.view-tabs{display:flex;gap:2px}
+.view-tab{font-family:'IBM Plex Mono',monospace;font-size:0.63rem;letter-spacing:1px;text-transform:uppercase;padding:5px 10px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt3);cursor:pointer;border-radius:2px;transition:all .15s}
+.view-tab.active{background:var(--acc);color:var(--bg);border-color:var(--acc)}
+.view-tab:hover:not(.active){color:var(--txt);border-color:var(--bdr2)}
+
+/* ── Toolbar ── */
+.toolbar{padding:10px 16px;border-bottom:1px solid var(--bdr);background:var(--surf);display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.nav-btn{background:none;border:1px solid var(--bdr);border-radius:2px;color:var(--txt2);cursor:pointer;font-size:0.75rem;padding:5px 10px;transition:all .15s;font-family:'IBM Plex Mono',monospace}
+.nav-btn:hover{border-color:var(--bdr2);color:var(--txt)}
+.period-label{font-family:'Syne',sans-serif;font-size:0.82rem;font-weight:700;min-width:180px;text-align:center}
+.spacer{flex:1}
+.add-btn{font-family:'IBM Plex Mono',monospace;font-size:0.65rem;letter-spacing:1.5px;text-transform:uppercase;padding:6px 14px;border:1px solid var(--acc);background:var(--acc);color:var(--bg);cursor:pointer;border-radius:2px;transition:all .15s;font-weight:500;white-space:nowrap}
+.add-btn:hover{background:var(--txt2);border-color:var(--txt2)}
+
+/* ── Category legend ── */
+.legend{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:0.6rem;color:var(--txt3);text-transform:uppercase;letter-spacing:1px;cursor:pointer;user-select:none}
+.legend-item.muted{opacity:.35}
+.legend-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+
+/* ── Main content ── */
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+
+/* ── GANTT VIEW ── */
+.gantt-wrap{flex:1;overflow:auto;position:relative}
+.gantt{display:flex;flex-direction:column;min-width:800px}
+
+/* Header row */
+.gantt-header{display:flex;position:sticky;top:0;z-index:20;background:var(--surf);border-bottom:1px solid var(--bdr)}
+.gantt-label-col{width:200px;flex-shrink:0;padding:8px 12px;font-size:0.58rem;text-transform:uppercase;letter-spacing:2px;color:var(--txt3);border-right:1px solid var(--bdr)}
+.gantt-days{flex:1;display:flex;position:relative}
+.gantt-day-cell{flex-shrink:0;border-right:1px solid var(--bdr);padding:6px 0;text-align:center}
+.gantt-day-num{font-size:0.65rem;color:var(--txt3);display:block}
+.gantt-day-name{font-size:0.55rem;color:var(--txt3);opacity:.6;display:block}
+.gantt-day-cell.today{background:rgba(107,159,212,.08)}
+.gantt-day-cell.today .gantt-day-num{color:var(--blue);font-weight:700}
+.gantt-day-cell.weekend .gantt-day-num{color:var(--txt3);opacity:.5}
+
+/* Task rows */
+.gantt-row{display:flex;border-bottom:1px solid var(--bdr);min-height:36px;transition:background .1s;position:relative}
+.gantt-row:hover{background:var(--surf2)}
+.gantt-row-label{width:200px;flex-shrink:0;padding:8px 12px;display:flex;align-items:center;gap:6px;border-right:1px solid var(--bdr);cursor:pointer}
+.gantt-row-label:hover .row-label-text{color:var(--txt)}
+.row-label-text{font-size:0.73rem;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;line-height:1.3}
+.row-cat-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.gantt-row-track{flex:1;position:relative;display:flex;align-items:center;padding:4px 0}
+
+/* Gantt bar */
+.gantt-bar{position:absolute;height:22px;border-radius:3px;cursor:pointer;display:flex;align-items:center;padding:0 8px;font-size:0.6rem;color:#fff;font-weight:500;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;transition:filter .15s,transform .15s;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.gantt-bar:hover{filter:brightness(1.15);transform:scaleY(1.05)}
+
+/* Today line */
+.today-line{position:absolute;top:0;bottom:0;width:1px;background:var(--blue);opacity:.6;z-index:10;pointer-events:none}
+.today-line::before{content:'▼';position:absolute;top:-6px;left:-5px;font-size:0.5rem;color:var(--blue)}
+
+/* Empty gantt */
+.gantt-empty{padding:60px 20px;text-align:center;color:var(--txt3);font-size:0.76rem;line-height:1.8}
+
+/* ── LIST VIEW ── */
+.list-wrap{flex:1;overflow-y:auto;padding:16px}
+.list-group{margin-bottom:20px}
+.list-group-label{font-size:0.58rem;text-transform:uppercase;letter-spacing:2px;color:var(--txt3);margin-bottom:8px;padding-left:2px}
+.list-items{display:flex;flex-direction:column;gap:5px}
+.list-item{background:var(--surf);border:1px solid var(--bdr);border-radius:3px;padding:10px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:border-color .15s,background .15s}
+.list-item:hover{border-color:var(--bdr2);background:var(--surf2)}
+.list-item-bar{width:3px;height:32px;border-radius:2px;flex-shrink:0}
+.list-item-body{flex:1;min-width:0}
+.list-item-name{font-size:0.78rem;color:var(--txt);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list-item-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.list-item-dates{font-size:0.62rem;color:var(--txt3)}
+.list-item-tag{font-size:0.56rem;text-transform:uppercase;letter-spacing:1px;padding:1px 6px;border-radius:2px;border:1px solid;flex-shrink:0}
+.status-tag{font-size:0.56rem;text-transform:uppercase;letter-spacing:1px;padding:1px 6px;border-radius:2px;background:var(--surf3);color:var(--txt3);flex-shrink:0}
+.list-item-del{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:0.8rem;padding:2px 4px;transition:color .15s;flex-shrink:0}
+.list-item-del:hover{color:var(--red)}
+
+/* ── Drag handles ── */
+.gantt-bar{cursor:grab}
+.gantt-bar.dragging{cursor:grabbing;opacity:.85;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.5)!important;transition:none!important}
+.bar-handle{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:2;opacity:0;transition:opacity .15s}
+.bar-handle-left{left:0;border-radius:3px 0 0 3px}
+.bar-handle-right{right:0;border-radius:0 3px 3px 0}
+.gantt-bar:hover .bar-handle{opacity:1}
+.bar-handle::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:2px;height:12px;background:rgba(255,255,255,.5);border-radius:1px}
+.gantt-row-track{user-select:none}
+/* drag tooltip */
+.drag-tip{position:fixed;top:0;left:0;background:var(--surf);border:1px solid var(--bdr2);border-radius:3px;padding:4px 8px;font-size:0.62rem;color:var(--txt2);z-index:9999;pointer-events:none;display:none;white-space:nowrap;font-family:'IBM Plex Mono',monospace}
+
+/* ── Loading ── */
+.loading-row{display:flex;align-items:center;gap:10px;padding:20px;color:var(--txt3);font-size:0.72rem}
+.spinner{width:13px;height:13px;border:2px solid var(--bdr);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Modal ── */
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:flex-end;justify-content:center}
+.modal-backdrop.open{display:flex}
+.modal{background:var(--surf);border:1px solid var(--bdr2);border-radius:10px 10px 0 0;padding:22px 20px calc(22px + var(--safe-bottom));width:100%;max-width:520px;box-shadow:0 -8px 32px var(--shadow);animation:slideup .22s ease}
+@keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal h3{font-family:'Syne',sans-serif;font-size:0.92rem;font-weight:700;margin-bottom:16px}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.modal-grid.full{grid-template-columns:1fr}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:0.58rem;text-transform:uppercase;letter-spacing:2px;color:var(--txt3)}
+.field input,.field select,.field textarea{font-family:'IBM Plex Mono',monospace;font-size:0.76rem;padding:8px 10px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt);border-radius:3px;outline:none;transition:border-color .15s;-webkit-appearance:none;resize:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue)}
+.field select option{background:var(--surf2)}
+.modal-actions{display:flex;gap:8px;margin-top:16px;justify-content:space-between;align-items:center}
+.modal-actions-right{display:flex;gap:8px}
+@media(min-width:681px){
+  .modal-backdrop{align-items:center}
+  .modal{border-radius:6px;max-width:480px;padding:24px 26px;animation:fadein .18s ease}
+  @keyframes fadein{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+}
+
+/* ── Buttons ── */
+.btn{font-family:'IBM Plex Mono',monospace;font-size:0.67rem;letter-spacing:1.5px;text-transform:uppercase;padding:7px 14px;border:1px solid var(--acc);background:var(--acc);color:var(--bg);cursor:pointer;border-radius:2px;transition:all .15s;white-space:nowrap;font-weight:500}
+.btn:hover{background:var(--txt2);border-color:var(--txt2)}
+.btn.outline{background:transparent;color:var(--txt2);border-color:var(--bdr2)}
+.btn.outline:hover{color:var(--txt);border-color:var(--txt);background:var(--surf2)}
+.btn.danger{background:transparent;border-color:var(--bdr);color:var(--txt3)}
+.btn.danger:hover{border-color:var(--red);color:var(--red)}
+.btn.small{padding:5px 10px;font-size:0.62rem}
+
+/* ── Category pills in modal ── */
+.cat-pills{display:flex;gap:5px;flex-wrap:wrap}
+.cat-pill{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;padding:4px 10px;border-radius:20px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt2);cursor:pointer;transition:all .15s}
+.cat-pill:hover{border-color:var(--bdr2);color:var(--txt)}
+.cat-pill.active{font-weight:500;color:#fff}
+
+/* ── Status pills ── */
+.status-pills{display:flex;gap:5px}
+.status-pill{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;padding:4px 10px;border-radius:20px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt2);cursor:pointer;transition:all .15s}
+.status-pill:hover{border-color:var(--bdr2);color:var(--txt)}
+.status-pill.active-ns{background:var(--surf3);border-color:var(--bdr2);color:var(--txt)}
+.status-pill.active-ip{background:rgba(212,169,107,.2);border-color:var(--amber);color:var(--amber)}
+.status-pill.active-dn{background:rgba(106,191,123,.2);border-color:var(--green);color:var(--green)}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:calc(20px + var(--safe-bottom));left:50%;transform:translateX(-50%);background:var(--surf2);border:1px solid var(--bdr2);border-radius:20px;padding:8px 18px;font-size:0.72rem;color:var(--txt2);z-index:9999;animation:fadeup .2s ease;pointer-events:none;white-space:nowrap}
+.toast.err{border-color:var(--red);color:var(--red)}
+.toast.ok{border-color:var(--green);color:var(--green)}
+@keyframes fadeup{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* Mobile */
+@media(max-width:600px){
+  .topbar{height:48px;padding:0 12px;gap:8px}
+  .toolbar{padding:8px 12px;gap:6px}
+  .period-label{min-width:120px;font-size:0.72rem}
+  .gantt-label-col{width:130px}
+  .gantt-row-label{width:130px}
+  .legend{gap:6px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar">
+    <a class="back-btn" href="index.html">←</a>
+    <div class="topbar-title">Planner</div>
+    <div class="view-tabs">
+      <button class="view-tab active" id="tab-gantt">Gantt</button>
+      <button class="view-tab" id="tab-list">List</button>
+    </div>
+    <div class="notion-pill"><span class="notion-dot" id="notion-dot"></span>Notion</div>
+  </div>
+
+  <div class="toolbar">
+    <button class="nav-btn" id="btn-prev">◀</button>
+    <div class="period-label" id="period-label"></div>
+    <button class="nav-btn" id="btn-next">▶</button>
+    <button class="nav-btn" id="btn-today">Today</button>
+    <div class="spacer"></div>
+    <div class="legend" id="legend"></div>
+    <button class="add-btn" id="btn-add">+ Task</button>
+  </div>
+
+  <div class="content">
+    <div id="view-gantt" class="gantt-wrap">
+      <div class="loading-row"><div class="spinner"></div>Loading from Notion…</div>
+    </div>
+    <div id="view-list" style="display:none;flex:1;overflow-y:auto">
+      <div class="list-wrap" id="list-inner"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Add / Edit modal -->
+<div class="modal-backdrop" id="modal-task">
+  <div class="modal">
+    <h3 id="modal-title">New Task</h3>
+    <div class="modal-grid full" style="margin-bottom:10px">
+      <div class="field"><label>Task Name</label><input type="text" id="inp-name" placeholder="e.g. Biology Assignment"></div>
+    </div>
+    <div class="modal-grid" style="margin-bottom:10px">
+      <div class="field"><label>Start Date</label><input type="date" id="inp-start"></div>
+      <div class="field"><label>End Date</label><input type="date" id="inp-end"></div>
+    </div>
+    <div class="field" style="margin-bottom:10px">
+      <label>Category</label>
+      <div class="cat-pills" id="cat-pills">
+        <button class="cat-pill" data-cat="">None</button>
+        <button class="cat-pill" data-cat="Assignment">Assignment</button>
+        <button class="cat-pill" data-cat="Exam">Exam</button>
+        <button class="cat-pill" data-cat="Project">Project</button>
+        <button class="cat-pill" data-cat="Study">Study</button>
+        <button class="cat-pill" data-cat="Personal">Personal</button>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:10px">
+      <label>Status</label>
+      <div class="status-pills">
+        <button class="status-pill active-ns" data-status="Not Started">Not Started</button>
+        <button class="status-pill" data-status="In Progress">In Progress</button>
+        <button class="status-pill" data-status="Done">Done</button>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:4px">
+      <label>Notes</label>
+      <textarea id="inp-notes" rows="2" placeholder="Optional notes…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger small" id="btn-delete-task" style="display:none">Delete</button>
+      <div class="modal-actions-right">
+        <button class="btn outline small" id="modal-cancel">Cancel</button>
+        <button class="btn small" id="modal-save">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const PLANNER_DB    = '08d929f3e42f45f88938e2a204714753';
+const NOTION_VER    = '2022-06-28';
+const PROXY         = '/api/notion';
+
+let NOTION_TOKEN = localStorage.getItem('fc_notion_token') || '';
+const hdr = () => ({ 'Authorization':`Bearer ${NOTION_TOKEN}`, 'Content-Type':'application/json', 'Notion-Version':NOTION_VER });
+
+async function nPost(path, body) {
+  const r = await fetch(PROXY+`/v1${path}`,{method:'POST',headers:hdr(),body:JSON.stringify(body)});
+  if(!r.ok){const e=await r.json();throw new Error(e.message||r.status);}
+  return r.json();
+}
+async function nPatch(path, body) {
+  const r = await fetch(PROXY+`/v1${path}`,{method:'PATCH',headers:hdr(),body:JSON.stringify(body)});
+  if(!r.ok){const e=await r.json();throw new Error(e.message||r.status);}
+  return r.json();
+}
+async function queryDB(dbId) {
+  let results=[],cursor;
+  do {
+    const body={page_size:100,sorts:[{property:'Start',direction:'ascending'}]};
+    if(cursor)body.start_cursor=cursor;
+    const d=await nPost(`/databases/${dbId}/query`,body);
+    results=results.concat(d.results);
+    cursor=d.has_more?d.next_cursor:undefined;
+  } while(cursor);
+  return results;
+}
+
+// ── Parse ─────────────────────────────────────────────────────────────────────
+function parseTask(p){
+  return {
+    id:p.id,
+    name:p.properties?.Task?.title?.[0]?.plain_text||'',
+    start:p.properties?.Start?.date?.start||null,
+    end:p.properties?.End?.date?.start||null,
+    category:p.properties?.Category?.select?.name||'',
+    status:p.properties?.Status?.select?.name||'Not Started',
+    notes:p.properties?.Notes?.rich_text?.[0]?.plain_text||''
+  };
+}
+
+// ── Colours ───────────────────────────────────────────────────────────────────
+const CAT_COLORS = {
+  Assignment:'#6b9fd4', Exam:'#d96b6b', Project:'#d4906b',
+  Study:'#6abf7b', Personal:'#a78fd4', '':`#585858`
+};
+const CAT_CSS = {
+  Assignment:'color:var(--blue);border-color:var(--blue)',
+  Exam:'color:var(--red);border-color:var(--red)',
+  Project:'color:var(--orange);border-color:var(--orange)',
+  Study:'color:var(--green);border-color:var(--green)',
+  Personal:'color:var(--purple);border-color:var(--purple)',
+  '':'color:var(--txt3);border-color:var(--bdr)'
+};
+const CAT_PILL_ACTIVE = {
+  Assignment:'background:#6b9fd4',Exam:'background:#d96b6b',Project:'background:#d4906b',
+  Study:'background:#6abf7b',Personal:'background:#a78fd4','':`background:#585858`
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let tasks=[];
+let viewMode='gantt';
+let ganttOffset=0;   // days offset from today for start of view
+let DAY_W=36;        // px per day
+let DAYS_SHOWN=28;   // days visible
+let hiddenCats=new Set();
+let editingId=null;
+let modalCat='';
+let modalStatus='Not Started';
+
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const today=()=>new Date().toISOString().split('T')[0];
+const parseDate=s=>s?new Date(s+'T00:00:00'):null;
+const fmtShort=d=>d?`${d.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}`:'';
+const daysBetween=(a,b)=>Math.round((b-a)/(1000*60*60*24));
+const addDays=(d,n)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r;};
+const dateFmt=d=>d?d.toISOString().split('T')[0]:'';
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg,type=''){
+  const el=document.createElement('div');
+  el.className='toast'+(type?' '+type:'');el.textContent=msg;
+  document.body.appendChild(el);setTimeout(()=>el.remove(),3000);
+}
+
+// ── Notion status ─────────────────────────────────────────────────────────────
+function setConnected(ok){document.getElementById('notion-dot').classList.toggle('connected',ok);}
+
+// ── Load ──────────────────────────────────────────────────────────────────────
+async function loadAll(){
+  if(!NOTION_TOKEN){setConnected(false);document.getElementById('view-gantt').innerHTML='<div class="gantt-empty">No Notion token found.<br>Add your token in Settings.</div>';return;}
+  document.getElementById('view-gantt').innerHTML='<div class="loading-row"><div class="spinner"></div>Loading from Notion…</div>';
+  try{
+    const pages=await queryDB(PLANNER_DB);
+    tasks=pages.map(parseTask);
+    setConnected(true);
+    renderLegend();
+    render();
+    toast('Synced ✓','ok');
+  }catch(err){
+    setConnected(false);
+    document.getElementById('view-gantt').innerHTML=`<div class="gantt-empty">Could not connect to Notion.<br>${esc(err.message)}</div>`;
+    toast('Connection failed','err');
+  }
+}
+
+// ── Legend ────────────────────────────────────────────────────────────────────
+function renderLegend(){
+  const cats=[...new Set(tasks.map(t=>t.category).filter(Boolean))];
+  const el=document.getElementById('legend');el.innerHTML='';
+  ['Assignment','Exam','Project','Study','Personal'].forEach(cat=>{
+    const item=document.createElement('div');
+    item.className='legend-item'+(hiddenCats.has(cat)?' muted':'');
+    item.innerHTML=`<div class="legend-dot" style="background:${CAT_COLORS[cat]}"></div>${cat}`;
+    item.addEventListener('click',()=>{
+      hiddenCats.has(cat)?hiddenCats.delete(cat):hiddenCats.add(cat);
+      renderLegend();render();
+    });
+    el.appendChild(item);
+  });
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render(){viewMode==='gantt'?renderGantt():renderList();}
+
+// ── GANTT ─────────────────────────────────────────────────────────────────────
+function renderGantt(){
+  const todayDate=new Date();todayDate.setHours(0,0,0,0);
+  const startDate=addDays(todayDate,ganttOffset);
+  const endDate=addDays(startDate,DAYS_SHOWN-1);
+
+  // Period label
+  document.getElementById('period-label').textContent=
+    `${fmtShort(startDate)} — ${fmtShort(endDate)} ${endDate.getFullYear()}`;
+
+  const wrap=document.getElementById('view-gantt');
+  wrap.innerHTML='';
+
+  const gantt=document.createElement('div');gantt.className='gantt';
+
+  // Header
+  const hdr2=document.createElement('div');hdr2.className='gantt-header';
+  const lbl=document.createElement('div');lbl.className='gantt-label-col';lbl.textContent='Task';
+  hdr2.appendChild(lbl);
+  const daysRow=document.createElement('div');daysRow.className='gantt-days';
+
+  for(let i=0;i<DAYS_SHOWN;i++){
+    const d=addDays(startDate,i);
+    const isToday=dateFmt(d)===dateFmt(todayDate);
+    const isWeekend=d.getDay()===0||d.getDay()===6;
+    const cell=document.createElement('div');
+    cell.className='gantt-day-cell'+(isToday?' today':'')+(isWeekend?' weekend':'');
+    cell.style.width=DAY_W+'px';
+    const names=['Su','Mo','Tu','We','Th','Fr','Sa'];
+    cell.innerHTML=`<span class="gantt-day-num">${d.getDate()}</span><span class="gantt-day-name">${names[d.getDay()]}</span>`;
+    daysRow.appendChild(cell);
+  }
+  hdr2.appendChild(daysRow);
+  gantt.appendChild(hdr2);
+
+  // Filter tasks
+  const visible=tasks.filter(t=>!hiddenCats.has(t.category)&&t.start);
+
+  if(!visible.length){
+    const empty=document.createElement('div');
+    empty.className='gantt-empty';
+    empty.innerHTML='No tasks to display.<br>Click <strong>+ Task</strong> to add one.';
+    gantt.appendChild(empty);
+    wrap.appendChild(gantt);return;
+  }
+
+  // Today line position
+  const todayOffset=daysBetween(startDate,todayDate);
+
+  visible.forEach(task=>{
+    const row=document.createElement('div');row.className='gantt-row';
+
+    // Label
+    const rowLabel=document.createElement('div');rowLabel.className='gantt-row-label';
+    rowLabel.title='Click to edit';
+    const catDot=document.createElement('div');catDot.className='row-cat-dot';
+    catDot.style.background=CAT_COLORS[task.category]||'var(--bdr2)';
+    const labelText=document.createElement('div');labelText.className='row-label-text';labelText.textContent=task.name;
+    rowLabel.appendChild(catDot);rowLabel.appendChild(labelText);
+    rowLabel.addEventListener('click',()=>openEdit(task.id));
+    row.appendChild(rowLabel);
+
+    // Track
+    const track=document.createElement('div');track.className='gantt-row-track';
+    track.style.width=(DAY_W*DAYS_SHOWN)+'px';
+
+    // Today line
+    if(todayOffset>=0&&todayOffset<DAYS_SHOWN){
+      const line=document.createElement('div');line.className='today-line';
+      line.style.left=(todayOffset*DAY_W+DAY_W/2)+'px';
+      track.appendChild(line);
+    }
+
+    // Bar
+    const taskStart=parseDate(task.start);
+    const taskEnd=parseDate(task.end||task.start);
+    if(taskStart&&taskEnd){
+      const barStart=daysBetween(startDate,taskStart);
+      const barLen=daysBetween(taskStart,taskEnd)+1;
+      const left=barStart*DAY_W;
+      const width=barLen*DAY_W-2;
+
+      if(barStart<DAYS_SHOWN&&barStart+barLen>0){
+        const bar=document.createElement('div');bar.className='gantt-bar';
+        const clippedLeft=Math.max(0,left);
+        const clippedWidth=Math.min(width,DAYS_SHOWN*DAY_W-clippedLeft-2);
+        bar.style.cssText=`left:${clippedLeft}px;width:${Math.max(clippedWidth,4)}px;background:${CAT_COLORS[task.category]||'#585858'};opacity:${task.status==='Done'?0.45:1}`;
+        bar.title=`${task.name}\n${task.start}${task.end&&task.end!==task.start?' → '+task.end:''}\n${task.status}`;
+
+        // Label span (so handles don't obscure text)
+        const barLabel=document.createElement('span');barLabel.style.cssText='position:absolute;left:22px;right:22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none';
+        barLabel.textContent=task.name;bar.appendChild(barLabel);
+
+        // Left resize handle
+        const hl=document.createElement('div');hl.className='bar-handle bar-handle-left';
+        hl.addEventListener('mousedown',e=>{e.stopPropagation();startDrag(e,task,'left',startDate);});
+        hl.addEventListener('touchstart',e=>{e.stopPropagation();startDrag(e,task,'left',startDate);},{passive:false});
+        bar.appendChild(hl);
+
+        // Right resize handle
+        const hr=document.createElement('div');hr.className='bar-handle bar-handle-right';
+        hr.addEventListener('mousedown',e=>{e.stopPropagation();startDrag(e,task,'right',startDate);});
+        hr.addEventListener('touchstart',e=>{e.stopPropagation();startDrag(e,task,'right',startDate);},{passive:false});
+        bar.appendChild(hr);
+
+        // Move drag
+        bar.addEventListener('mousedown',e=>{if(e.target===hl||e.target===hr)return;e.stopPropagation();startDrag(e,task,'move',startDate);});
+        bar.addEventListener('touchstart',e=>{if(e.target===hl||e.target===hr)return;e.stopPropagation();startDrag(e,task,'move',startDate);},{passive:false});
+
+        // Click to edit (only if didn't drag)
+        bar.addEventListener('click',e=>{if(!bar._didDrag)openEdit(task.id);bar._didDrag=false;});
+        track.appendChild(bar);
+      }
+    }
+
+    row.appendChild(track);
+    gantt.appendChild(row);
+  });
+
+  wrap.appendChild(gantt);
+}
+
+// ── LIST ──────────────────────────────────────────────────────────────────────
+function renderList(){
+  const inner=document.getElementById('list-inner');inner.innerHTML='';
+  const visible=tasks.filter(t=>!hiddenCats.has(t.category));
+  if(!visible.length){inner.innerHTML='<div class="gantt-empty">No tasks. Click + Task to add one.</div>';return;}
+
+  // Group by status
+  const groups={'In Progress':[],'Not Started':[],'Done':[]};
+  visible.forEach(t=>{
+    (groups[t.status]||(groups['Not Started'])).push(t);
+  });
+
+  Object.entries(groups).forEach(([label,list])=>{
+    if(!list.length)return;
+    const section=document.createElement('div');section.className='list-group';
+    const lbl=document.createElement('div');lbl.className='list-group-label';
+    lbl.textContent=`${label} (${list.length})`;
+    section.appendChild(lbl);
+    const items=document.createElement('div');items.className='list-items';
+    list.forEach(task=>{
+      const item=document.createElement('div');item.className='list-item';
+      const bar=document.createElement('div');bar.className='list-item-bar';
+      bar.style.background=CAT_COLORS[task.category]||'var(--bdr2)';
+      const body=document.createElement('div');body.className='list-item-body';
+      const name=document.createElement('div');name.className='list-item-name';name.textContent=task.name;
+      const meta=document.createElement('div');meta.className='list-item-meta';
+      if(task.start){
+        const dates=document.createElement('span');dates.className='list-item-dates';
+        dates.textContent=task.end&&task.end!==task.start?`${task.start} → ${task.end}`:task.start;
+        meta.appendChild(dates);
+      }
+      if(task.category){
+        const tag=document.createElement('span');tag.className='list-item-tag';
+        tag.style.cssText=CAT_CSS[task.category];tag.textContent=task.category;
+        meta.appendChild(tag);
+      }
+      body.appendChild(name);body.appendChild(meta);
+      const del=document.createElement('button');del.className='list-item-del';del.textContent='✕';
+      del.addEventListener('click',e=>{e.stopPropagation();deleteTask(task.id,task.name);});
+      item.appendChild(bar);item.appendChild(body);item.appendChild(del);
+      item.addEventListener('click',()=>openEdit(task.id));
+      items.appendChild(item);
+    });
+    section.appendChild(items);
+    inner.appendChild(section);
+  });
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function openAdd(){
+  editingId=null;
+  document.getElementById('modal-title').textContent='New Task';
+  document.getElementById('inp-name').value='';
+  document.getElementById('inp-start').value=today();
+  document.getElementById('inp-end').value=today();
+  document.getElementById('inp-notes').value='';
+  document.getElementById('btn-delete-task').style.display='none';
+  setModalCat('');setModalStatus('Not Started');
+  document.getElementById('modal-task').classList.add('open');
+  setTimeout(()=>document.getElementById('inp-name').focus(),80);
+}
+
+function openEdit(id){
+  const t=tasks.find(x=>x.id===id);if(!t)return;
+  editingId=id;
+  document.getElementById('modal-title').textContent='Edit Task';
+  document.getElementById('inp-name').value=t.name;
+  document.getElementById('inp-start').value=t.start||today();
+  document.getElementById('inp-end').value=t.end||t.start||today();
+  document.getElementById('inp-notes').value=t.notes||'';
+  document.getElementById('btn-delete-task').style.display='';
+  setModalCat(t.category);setModalStatus(t.status);
+  document.getElementById('modal-task').classList.add('open');
+}
+
+function setModalCat(cat){
+  modalCat=cat;
+  document.querySelectorAll('.cat-pill').forEach(p=>{
+    const active=p.dataset.cat===cat;
+    p.className='cat-pill'+(active?' active':'');
+    if(active)p.style.cssText=CAT_PILL_ACTIVE[cat]||'background:#585858';
+    else p.style.cssText='';
+  });
+}
+
+function setModalStatus(s){
+  modalStatus=s;
+  document.querySelectorAll('.status-pill').forEach(p=>{
+    p.className='status-pill';
+    if(p.dataset.status===s){
+      if(s==='Not Started')p.classList.add('active-ns');
+      else if(s==='In Progress')p.classList.add('active-ip');
+      else p.classList.add('active-dn');
+    }
+  });
+}
+
+document.getElementById('modal-cancel').addEventListener('click',()=>document.getElementById('modal-task').classList.remove('open'));
+document.getElementById('modal-task').addEventListener('click',e=>{if(e.target===document.getElementById('modal-task'))document.getElementById('modal-task').classList.remove('open');});
+document.getElementById('inp-name').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('modal-save').click();});
+document.querySelectorAll('.cat-pill').forEach(p=>p.addEventListener('click',()=>setModalCat(p.dataset.cat)));
+document.querySelectorAll('.status-pill').forEach(p=>p.addEventListener('click',()=>setModalStatus(p.dataset.status)));
+document.getElementById('btn-add').addEventListener('click',openAdd);
+
+document.getElementById('modal-save').addEventListener('click',async()=>{
+  const name=document.getElementById('inp-name').value.trim();
+  const start=document.getElementById('inp-start').value;
+  const end=document.getElementById('inp-end').value;
+  if(!name){toast('Enter a task name','err');return;}
+  document.getElementById('modal-task').classList.remove('open');
+  const notes=document.getElementById('inp-notes').value.trim();
+  const props={
+    Task:{title:[{text:{content:name}}]},
+    Status:{select:{name:modalStatus}},
+    Notes:{rich_text:notes?[{text:{content:notes}}]:[]}
+  };
+  if(start)props.Start={date:{start}};
+  if(end)props.End={date:{start:end}};
+  if(modalCat)props.Category={select:{name:modalCat}};
+  else props.Category={select:null};
+
+  if(editingId){
+    // Update
+    const task=tasks.find(t=>t.id===editingId);
+    const old={...task};
+    task.name=name;task.start=start;task.end=end;task.category=modalCat;task.status=modalStatus;task.notes=notes;
+    render();
+    try{await nPatch(`/pages/${editingId}`,{properties:props});toast('Updated ✓','ok');}
+    catch(err){Object.assign(task,old);render();toast('Failed: '+err.message,'err');}
+  } else {
+    // Create
+    try{
+      const page=await nPost('/pages',{parent:{database_id:PLANNER_DB},properties:props});
+      tasks.push(parseTask(page));tasks.sort((a,b)=>(a.start||'').localeCompare(b.start||''));
+      renderLegend();render();toast('Task added ✓','ok');
+    }catch(err){toast('Failed: '+err.message,'err');}
+  }
+});
+
+document.getElementById('btn-delete-task').addEventListener('click',()=>{
+  if(editingId) deleteTask(editingId,tasks.find(t=>t.id===editingId)?.name||'');
+  document.getElementById('modal-task').classList.remove('open');
+});
+
+async function deleteTask(id,name){
+  if(!confirm(`Delete "${name}"?`))return;
+  try{
+    await nPatch(`/pages/${id}`,{archived:true});
+    tasks=tasks.filter(t=>t.id!==id);
+    renderLegend();render();toast('Deleted ✓');
+  }catch(err){toast('Failed: '+err.message,'err');}
+}
+
+// ── Drag logic ───────────────────────────────────────────────────────────────
+const dragTip = document.createElement('div');
+dragTip.className='drag-tip';
+document.body.appendChild(dragTip);
+
+function getClientX(e){ return e.touches?e.touches[0].clientX:e.clientX; }
+
+function startDrag(e, task, mode, viewStart){
+  e.preventDefault();
+  const bar = e.currentTarget.closest?.('.gantt-bar') || e.currentTarget;
+  const track = bar.parentElement;
+  const trackRect = track.getBoundingClientRect();
+  const startX = getClientX(e);
+  const origLeft = parseFloat(bar.style.left)||0;
+  const origWidth = parseFloat(bar.style.width)||DAY_W;
+
+  // Snapshot original dates
+  const origStart = task.start;
+  const origEnd   = task.end || task.start;
+  bar._didDrag = false;
+
+  dragTip.style.display='block';
+
+  function onMove(ev){
+    const dx = getClientX(ev) - startX;
+    if(Math.abs(dx)>3) bar._didDrag=true;
+
+    let newLeft=origLeft, newWidth=origWidth;
+    if(mode==='move')   { newLeft=origLeft+dx; }
+    if(mode==='right')  { newWidth=Math.max(DAY_W,origWidth+dx); }
+    if(mode==='left')   { newLeft=origLeft+dx; newWidth=Math.max(DAY_W,origWidth-dx); }
+
+    bar.style.left=newLeft+'px';
+    bar.style.width=newWidth+'px';
+    bar.classList.add('dragging');
+
+    // Compute new dates for tooltip
+    const dayOffsetStart = Math.round(newLeft/DAY_W);
+    const dayLen = Math.round(newWidth/DAY_W);
+    const ns = addDays(viewStart, dayOffsetStart);
+    const ne = addDays(ns, dayLen-1);
+    const fmt = d=>`${d.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}`;
+    dragTip.textContent = `${fmt(ns)} → ${fmt(ne)}`;
+    dragTip.style.left=(getClientX(ev)+14)+'px';
+    dragTip.style.top=(ev.touches?ev.touches[0].clientY:ev.clientY)+'px';
+  }
+
+  async function onUp(ev){
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+    document.removeEventListener('touchmove',onMove);
+    document.removeEventListener('touchend',onUp);
+    bar.classList.remove('dragging');
+    dragTip.style.display='none';
+
+    if(!bar._didDrag) return;
+
+    // Snap to day grid
+    const newLeft = parseFloat(bar.style.left)||0;
+    const newWidth = parseFloat(bar.style.width)||DAY_W;
+    const dayOffsetStart = Math.round(newLeft/DAY_W);
+    const dayLen = Math.max(1,Math.round(newWidth/DAY_W));
+
+    const newStart = dateFmt(addDays(viewStart, dayOffsetStart));
+    const newEnd   = dateFmt(addDays(viewStart, dayOffsetStart+dayLen-1));
+
+    // Snap bar to grid
+    bar.style.left=(dayOffsetStart*DAY_W)+'px';
+    bar.style.width=(dayLen*DAY_W-2)+'px';
+
+    // Update task in memory
+    const old={start:task.start,end:task.end};
+    task.start=newStart; task.end=newEnd;
+
+    // Sync to Notion
+    try{
+      await nPatch(`/pages/${task.id}`,{properties:{
+        Start:{date:{start:newStart}},
+        End:{date:{start:newEnd}}
+      }});
+      toast(`Moved to ${newStart} → ${newEnd}`,'ok');
+    }catch(err){
+      task.start=old.start; task.end=old.end;
+      renderGantt();
+      toast('Failed to save: '+err.message,'err');
+    }
+  }
+
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('mouseup',onUp);
+  document.addEventListener('touchmove',onMove,{passive:false});
+  document.addEventListener('touchend',onUp);
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+document.getElementById('btn-prev').addEventListener('click',()=>{ganttOffset-=7;renderGantt();});
+document.getElementById('btn-next').addEventListener('click',()=>{ganttOffset+=7;renderGantt();});
+document.getElementById('btn-today').addEventListener('click',()=>{ganttOffset=0;renderGantt();});
+
+// ── View tabs ─────────────────────────────────────────────────────────────────
+document.getElementById('tab-gantt').addEventListener('click',()=>{
+  viewMode='gantt';
+  document.getElementById('tab-gantt').classList.add('active');
+  document.getElementById('tab-list').classList.remove('active');
+  document.getElementById('view-gantt').style.display='';
+  document.getElementById('view-list').style.display='none';
+  renderGantt();
+});
+document.getElementById('tab-list').addEventListener('click',()=>{
+  viewMode='list';
+  document.getElementById('tab-list').classList.add('active');
+  document.getElementById('tab-gantt').classList.remove('active');
+  document.getElementById('view-gantt').style.display='none';
+  document.getElementById('view-list').style.display='flex';
+  renderList();
+});
+
+// ── Responsive day width ──────────────────────────────────────────────────────
+function updateDayWidth(){
+  const w=window.innerWidth;
+  if(w<600){DAY_W=28;DAYS_SHOWN=21;}
+  else if(w<900){DAY_W=32;DAYS_SHOWN=28;}
+  else{DAY_W=38;DAYS_SHOWN=30;}
+}
+window.addEventListener('resize',()=>{updateDayWidth();if(viewMode==='gantt')renderGantt();});
+updateDayWidth();
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "functions": {
+    "api/notion.js": { "memory": 128, "maxDuration": 10 },
+    "api/claude.js": { "memory": 128, "maxDuration": 30 }
+  },
+  "routes": [
+    { "src": "/api/notion/(.*)", "dest": "/api/notion.js" },
+    { "src": "/api/claude", "dest": "/api/claude.js" },
+    { "src": "/(.*)", "dest": "/$1" }
+  ]
+}
