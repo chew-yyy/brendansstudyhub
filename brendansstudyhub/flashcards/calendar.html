@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Calendar</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#242424; --surf:#2e2e2e; --surf2:#363636; --surf3:#404040;
+  --bdr:#484848; --bdr2:#585858;
+  --txt:#f0f0f0; --txt2:#a0a0a0; --txt3:#606060;
+  --acc:#e8e8e8; --green:#6abf7b; --red:#d96b6b; --blue:#6b9fd4; --amber:#d4a96b; --purple:#a78fd4;
+  --gcal:#4285f4;
+  --shadow:rgba(0,0,0,0.5);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:'IBM Plex Mono',monospace}
+.shell{height:100vh;display:flex;flex-direction:column}
+
+/* ── Topbar ── */
+.topbar{height:52px;border-bottom:1px solid var(--bdr);padding:0 16px;display:flex;align-items:center;gap:10px;background:var(--surf);flex-shrink:0}
+.back-btn{background:none;border:1px solid var(--bdr);border-radius:3px;color:var(--txt2);font-size:0.8rem;width:32px;height:32px;display:flex;align-items:center;justify-content:center;transition:all .15s;text-decoration:none;flex-shrink:0}
+.back-btn:hover{border-color:var(--bdr2);color:var(--txt)}
+.topbar-title{font-family:'Syne',sans-serif;font-size:0.9rem;font-weight:700;flex:1}
+.gcal-pill{display:flex;align-items:center;gap:5px;font-size:0.57rem;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;border:1px solid var(--bdr);border-radius:20px;padding:3px 9px;flex-shrink:0}
+.gcal-dot{width:5px;height:5px;border-radius:50%;background:var(--gcal)}
+.topbar-btn{background:none;border:1px solid var(--bdr);border-radius:3px;color:var(--txt2);cursor:pointer;font-size:0.65rem;letter-spacing:1px;text-transform:uppercase;padding:5px 10px;transition:all .15s;font-family:'IBM Plex Mono',monospace;white-space:nowrap;flex-shrink:0}
+.topbar-btn:hover{border-color:var(--bdr2);color:var(--txt)}
+.topbar-btn.primary{background:var(--gcal);border-color:var(--gcal);color:#fff;font-weight:500}
+.topbar-btn.primary:hover{background:#3b78e7;border-color:#3b78e7}
+
+/* ── View tabs ── */
+.view-tabs{padding:10px 16px;border-bottom:1px solid var(--bdr);background:var(--surf);display:flex;gap:6px;flex-shrink:0}
+.view-tab{font-family:'IBM Plex Mono',monospace;font-size:0.65rem;letter-spacing:1px;text-transform:uppercase;padding:5px 12px;border-radius:20px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt2);cursor:pointer;transition:all .15s}
+.view-tab:hover{border-color:var(--bdr2);color:var(--txt)}
+.view-tab.active{background:var(--txt);color:var(--bg);border-color:var(--txt);font-weight:500}
+
+/* ── Content ── */
+.content{flex:1;overflow-y:auto;padding:20px 16px;-webkit-overflow-scrolling:touch;padding-bottom:calc(20px + var(--safe-bottom))}
+
+/* ── Week nav ── */
+.week-nav{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.week-nav-btn{background:none;border:1px solid var(--bdr);border-radius:3px;color:var(--txt2);cursor:pointer;font-size:0.75rem;padding:5px 10px;transition:all .15s;font-family:'IBM Plex Mono',monospace}
+.week-nav-btn:hover{border-color:var(--bdr2);color:var(--txt)}
+.week-label{font-family:'Syne',sans-serif;font-size:0.88rem;font-weight:700;flex:1;text-align:center}
+
+/* ── Day strip ── */
+.day-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:20px}
+.day-cell{background:var(--surf);border:1px solid var(--bdr);border-radius:6px;padding:8px 6px;text-align:center;cursor:pointer;transition:all .15s;position:relative}
+.day-cell:hover{border-color:var(--bdr2);background:var(--surf2)}
+.day-cell.today{border-color:var(--gcal);background:rgba(66,133,244,.1)}
+.day-cell.selected{border-color:var(--gcal);background:rgba(66,133,244,.2)}
+.day-name{font-size:0.55rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--txt3);margin-bottom:4px}
+.day-num{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;color:var(--txt)}
+.day-cell.today .day-num{color:var(--gcal)}
+.day-dot-row{display:flex;gap:2px;justify-content:center;margin-top:4px;min-height:6px}
+.day-dot{width:4px;height:4px;border-radius:50%;background:var(--gcal);flex-shrink:0}
+
+/* ── Events section ── */
+.section-label{font-size:0.6rem;text-transform:uppercase;letter-spacing:2.5px;color:var(--txt3);margin-bottom:10px;padding-left:2px}
+.events-list{display:flex;flex-direction:column;gap:8px;margin-bottom:24px}
+.event-item{background:var(--surf);border:1px solid var(--bdr);border-radius:6px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;transition:border-color .15s,background .15s;position:relative;overflow:hidden}
+.event-item:hover{border-color:var(--bdr2);background:var(--surf2)}
+.event-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--event-color,var(--gcal))}
+.event-time{font-size:0.65rem;color:var(--txt3);white-space:nowrap;padding-top:1px;min-width:70px;flex-shrink:0}
+.event-body{flex:1;min-width:0}
+.event-title{font-size:0.8rem;color:var(--txt);font-family:'Syne',sans-serif;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px}
+.event-meta{font-size:0.62rem;color:var(--txt3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.event-del{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:0.8rem;padding:2px 4px;transition:color .15s;flex-shrink:0;opacity:0}
+.event-item:hover .event-del{opacity:.6}
+.event-del:hover{color:var(--red);opacity:1!important}
+
+/* All day events */
+.event-item.allday{padding:8px 14px}
+.event-item.allday .event-time{font-size:0.6rem;text-transform:uppercase;letter-spacing:1px;color:var(--txt3)}
+
+.empty-day{text-align:center;padding:32px 20px;color:var(--txt3);font-size:0.74rem;line-height:1.8;border:1px dashed var(--bdr);border-radius:6px;margin-bottom:16px}
+
+/* ── Add event modal ── */
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:flex-end;justify-content:center}
+.modal-backdrop.open{display:flex}
+.modal{background:var(--surf);border:1px solid var(--bdr2);border-radius:10px 10px 0 0;padding:22px 20px calc(22px + var(--safe-bottom));width:100%;max-width:480px;box-shadow:0 -8px 32px var(--shadow);animation:slideup .22s ease}
+@keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal h3{font-family:'Syne',sans-serif;font-size:0.92rem;font-weight:700;margin-bottom:16px}
+.modal-field{margin-bottom:10px}
+.modal-field label{font-size:0.58rem;text-transform:uppercase;letter-spacing:2px;color:var(--txt3);display:block;margin-bottom:5px}
+.modal-field input,.modal-field select,.modal-field textarea{font-family:'IBM Plex Mono',monospace;font-size:0.76rem;padding:8px 10px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt);border-radius:3px;outline:none;width:100%;transition:border-color .15s;-webkit-appearance:none}
+.modal-field input:focus,.modal-field select:focus{border-color:var(--gcal)}
+.modal-field input[type="date"],::-webkit-calendar-picker-indicator{filter:invert(.4)}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modal-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}
+@media(min-width:681px){
+  .modal-backdrop{align-items:center}
+  .modal{border-radius:6px;max-width:420px;padding:22px 24px;animation:fadein .18s ease}
+  @keyframes fadein{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+}
+
+/* Buttons */
+.btn{font-family:'IBM Plex Mono',monospace;font-size:0.67rem;letter-spacing:1.5px;text-transform:uppercase;padding:7px 14px;border:1px solid var(--acc);background:var(--acc);color:var(--bg);cursor:pointer;border-radius:2px;transition:all .15s;white-space:nowrap;font-weight:500}
+.btn:hover{background:var(--txt2);border-color:var(--txt2)}
+.btn.outline{background:transparent;color:var(--txt2);border-color:var(--bdr2)}
+.btn.outline:hover{color:var(--txt);border-color:var(--txt);background:var(--surf2)}
+.btn.gcal-btn{background:var(--gcal);border-color:var(--gcal);color:#fff}
+.btn.gcal-btn:hover{background:#3b78e7;border-color:#3b78e7}
+.btn.small{padding:5px 10px;font-size:0.62rem}
+
+/* Loading */
+.loading-row{display:flex;align-items:center;gap:10px;padding:20px 0;color:var(--txt3);font-size:0.72rem}
+.spinner{width:13px;height:13px;border:2px solid var(--bdr);border-top-color:var(--gcal);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Toast */
+.toast{position:fixed;bottom:calc(20px + var(--safe-bottom));left:50%;transform:translateX(-50%);background:var(--surf2);border:1px solid var(--bdr2);border-radius:20px;padding:8px 18px;font-size:0.72rem;color:var(--txt2);z-index:9999;animation:fadeup .2s ease;pointer-events:none;white-space:nowrap}
+.toast.ok{border-color:var(--green);color:var(--green)}
+.toast.err{border-color:var(--red);color:var(--red)}
+@keyframes fadeup{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* Mobile */
+@media(max-width:600px){
+  .topbar{height:48px;padding:0 12px}
+  .content{padding:14px 12px}
+  .day-strip{grid-template-columns:repeat(7,1fr);gap:3px}
+  .day-cell{padding:6px 3px}
+  .day-name{font-size:0.5rem}
+  .day-num{font-size:0.85rem}
+  .event-time{min-width:58px;font-size:0.6rem}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <a class="back-btn" href="index.html">←</a>
+    <div class="topbar-title">Calendar</div>
+    <div class="gcal-pill"><span class="gcal-dot"></span>Google Calendar</div>
+    <button class="topbar-btn primary" id="btn-add-event">+ Event</button>
+  </div>
+
+  <div class="view-tabs">
+    <button class="view-tab active" id="tab-week">Week</button>
+    <button class="view-tab" id="tab-upcoming">Upcoming</button>
+  </div>
+
+  <div class="content" id="content">
+    <div class="loading-row"><div class="spinner"></div>Loading calendar…</div>
+  </div>
+</div>
+
+<!-- Add Event Modal -->
+<div class="modal-backdrop" id="modal-add">
+  <div class="modal">
+    <h3 id="modal-title">New Event</h3>
+    <div class="modal-field"><label>Title</label><input type="text" id="inp-title" placeholder="e.g. Biology Lecture"></div>
+    <div class="modal-field"><label>Description</label><input type="text" id="inp-desc" placeholder="Optional"></div>
+    <div class="modal-field"><label>Location</label><input type="text" id="inp-location" placeholder="Optional"></div>
+    <div class="modal-grid">
+      <div class="modal-field"><label>Date</label><input type="date" id="inp-date"></div>
+      <div class="modal-field"><label>All Day</label>
+        <select id="inp-allday">
+          <option value="no">Specific time</option>
+          <option value="yes">All day</option>
+        </select>
+      </div>
+    </div>
+    <div id="time-fields" class="modal-grid">
+      <div class="modal-field"><label>Start Time</label><input type="time" id="inp-start" value="09:00"></div>
+      <div class="modal-field"><label>End Time</label><input type="time" id="inp-end" value="10:00"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn outline small" id="btn-cancel">Cancel</button>
+      <button class="btn gcal-btn small" id="btn-save-event">Save to Calendar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+const PROXY = '/api/notion'; // unused here but keep consistent
+let currentWeekOffset = 0;
+let events = [];
+let selectedDay = null;
+let activeView = 'week';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const today = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate()+n); return r; };
+const isSameDay = (a, b) => a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+const fmtDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const fmtTime = iso => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:true});
+};
+const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function toast(msg, type='') {
+  const el = document.createElement('div');
+  el.className = 'toast'+(type?' '+type:''); el.textContent = msg;
+  document.body.appendChild(el); setTimeout(()=>el.remove(), 3000);
+}
+
+// ── Fetch events via Render server proxy ──────────────────────────────────────
+async function fetchEvents(timeMin, timeMax) {
+  const res = await fetch(`/api/calendar/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function createEvent(eventData) {
+  const res = await fetch('/api/calendar/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(eventData)
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function deleteEvent(eventId) {
+  const res = await fetch(`/api/calendar/delete?eventId=${encodeURIComponent(eventId)}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+// ── Week view ─────────────────────────────────────────────────────────────────
+function getWeekStart(offset) {
+  const t = today();
+  const dayOfWeek = t.getDay();
+  const monday = addDays(t, -dayOfWeek + 1 + (offset * 7));
+  return monday;
+}
+
+async function renderWeek() {
+  const content = document.getElementById('content');
+  const weekStart = getWeekStart(currentWeekOffset);
+  const weekEnd   = addDays(weekStart, 6);
+
+  // Week label
+  const startLabel = `${weekStart.getDate()} ${MONTH_NAMES[weekStart.getMonth()]}`;
+  const endLabel   = `${weekEnd.getDate()} ${MONTH_NAMES[weekEnd.getMonth()]} ${weekEnd.getFullYear()}`;
+
+  content.innerHTML = `
+    <div class="week-nav">
+      <button class="week-nav-btn" id="btn-prev-week">◀</button>
+      <div class="week-label">${startLabel} — ${endLabel}</div>
+      <button class="week-nav-btn" id="btn-next-week">▶</button>
+      <button class="week-nav-btn" id="btn-today-week">Today</button>
+    </div>
+    <div class="day-strip" id="day-strip"></div>
+    <div id="events-area"><div class="loading-row"><div class="spinner"></div>Loading events…</div></div>
+  `;
+
+  document.getElementById('btn-prev-week').addEventListener('click', () => { currentWeekOffset--; renderWeek(); });
+  document.getElementById('btn-next-week').addEventListener('click', () => { currentWeekOffset++; renderWeek(); });
+  document.getElementById('btn-today-week').addEventListener('click', () => { currentWeekOffset=0; selectedDay=null; renderWeek(); });
+
+  // Build day strip
+  const strip = document.getElementById('day-strip');
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(weekStart, i);
+    const isToday = isSameDay(d, today());
+    const isSel   = selectedDay && isSameDay(d, selectedDay);
+    const cell = document.createElement('div');
+    cell.className = 'day-cell'+(isToday?' today':'')+(isSel?' selected':'');
+    cell.innerHTML = `<div class="day-name">${DAY_NAMES[d.getDay()]}</div><div class="day-num">${d.getDate()}</div><div class="day-dot-row" id="dots-${fmtDate(d)}"></div>`;
+    cell.addEventListener('click', () => {
+      selectedDay = d;
+      renderWeek();
+    });
+    strip.appendChild(cell);
+  }
+
+  // Load events for the week
+  try {
+    const minISO = weekStart.toISOString();
+    const maxISO = addDays(weekEnd, 1).toISOString();
+    const data = await fetchEvents(minISO, maxISO);
+    events = data.events || [];
+
+    // Add dots to day strip
+    events.forEach(ev => {
+      const start = new Date(ev.start?.dateTime || ev.start?.date);
+      const key = fmtDate(start);
+      const dotRow = document.getElementById('dots-'+key);
+      if (dotRow && dotRow.children.length < 3) {
+        const dot = document.createElement('div'); dot.className='day-dot'; dotRow.appendChild(dot);
+      }
+    });
+
+    // Show events for selected day (or today)
+    const showDay = selectedDay || today();
+    renderDayEvents(showDay);
+  } catch(err) {
+    document.getElementById('events-area').innerHTML = `<div class="empty-day">Could not load events.<br>${err.message}</div>`;
+  }
+}
+
+function renderDayEvents(day) {
+  const area = document.getElementById('events-area');
+  const dayEvents = events.filter(ev => {
+    const start = new Date(ev.start?.dateTime || ev.start?.date);
+    return isSameDay(start, day);
+  }).sort((a,b) => {
+    const at = a.start?.dateTime || a.start?.date;
+    const bt = b.start?.dateTime || b.start?.date;
+    return new Date(at) - new Date(bt);
+  });
+
+  const label = isSameDay(day, today()) ? 'Today' : `${DAY_NAMES[day.getDay()]}, ${day.getDate()} ${MONTH_NAMES[day.getMonth()]}`;
+  area.innerHTML = `<div class="section-label">${label}</div><div class="events-list" id="day-events-list"></div>`;
+
+  const list = document.getElementById('day-events-list');
+  if (!dayEvents.length) {
+    list.innerHTML = `<div class="empty-day">No events ${isSameDay(day,today())?'today':'on this day'}.<br>Click <strong>+ Event</strong> to add one.</div>`;
+    return;
+  }
+
+  dayEvents.forEach(ev => renderEventItem(ev, list));
+}
+
+// ── Upcoming view ─────────────────────────────────────────────────────────────
+async function renderUpcoming() {
+  const content = document.getElementById('content');
+  content.innerHTML = `<div class="loading-row"><div class="spinner"></div>Loading upcoming events…</div>`;
+  try {
+    const now = new Date();
+    const later = addDays(now, 30);
+    const data = await fetchEvents(now.toISOString(), later.toISOString());
+    events = (data.events || []).sort((a,b) => new Date(a.start?.dateTime||a.start?.date) - new Date(b.start?.dateTime||b.start?.date));
+
+    content.innerHTML = '';
+    if (!events.length) {
+      content.innerHTML = '<div class="empty-day">No upcoming events in the next 30 days.<br>Click <strong>+ Event</strong> to add one.</div>';
+      return;
+    }
+
+    // Group by date
+    const groups = {};
+    events.forEach(ev => {
+      const d = new Date(ev.start?.dateTime || ev.start?.date);
+      const key = fmtDate(d);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(ev);
+    });
+
+    Object.entries(groups).forEach(([dateKey, dayEvs]) => {
+      const d = new Date(dateKey+'T00:00:00');
+      const isToday = isSameDay(d, today());
+      const lbl = document.createElement('div');
+      lbl.className='section-label';
+      lbl.textContent = isToday ? 'Today' : `${DAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+      content.appendChild(lbl);
+      const list = document.createElement('div'); list.className='events-list';
+      dayEvs.forEach(ev => renderEventItem(ev, list));
+      content.appendChild(list);
+    });
+  } catch(err) {
+    content.innerHTML = `<div class="empty-day">Could not load events.<br>${err.message}</div>`;
+  }
+}
+
+// ── Event item ────────────────────────────────────────────────────────────────
+function renderEventItem(ev, container) {
+  const isAllDay = !!ev.start?.date && !ev.start?.dateTime;
+  const item = document.createElement('div');
+  item.className = 'event-item'+(isAllDay?' allday':'');
+  item.style.setProperty('--event-color', ev.colorHex || 'var(--gcal)');
+
+  const timeStr = isAllDay ? 'All day' : `${fmtTime(ev.start?.dateTime)} – ${fmtTime(ev.end?.dateTime)}`;
+  item.innerHTML = `
+    <div class="event-time">${timeStr}</div>
+    <div class="event-body">
+      <div class="event-title">${esc(ev.summary||'No title')}</div>
+      ${ev.location ? `<div class="event-meta">📍 ${esc(ev.location)}</div>` : ''}
+      ${ev.description ? `<div class="event-meta">${esc(ev.description.slice(0,80))}${ev.description.length>80?'…':''}</div>` : ''}
+    </div>
+    <button class="event-del" title="Delete event">✕</button>
+  `;
+  item.querySelector('.event-del').addEventListener('click', async e => {
+    e.stopPropagation();
+    if (!confirm(`Delete "${ev.summary}"?`)) return;
+    try {
+      await deleteEvent(ev.id);
+      toast('Event deleted ✓','ok');
+      activeView === 'week' ? renderWeek() : renderUpcoming();
+    } catch(err) { toast('Failed: '+err.message,'err'); }
+  });
+  container.appendChild(item);
+}
+
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// ── View tabs ─────────────────────────────────────────────────────────────────
+document.getElementById('tab-week').addEventListener('click', () => {
+  activeView='week';
+  document.getElementById('tab-week').classList.add('active');
+  document.getElementById('tab-upcoming').classList.remove('active');
+  renderWeek();
+});
+document.getElementById('tab-upcoming').addEventListener('click', () => {
+  activeView='upcoming';
+  document.getElementById('tab-upcoming').classList.add('active');
+  document.getElementById('tab-week').classList.remove('active');
+  renderUpcoming();
+});
+
+// ── Add event modal ───────────────────────────────────────────────────────────
+document.getElementById('btn-add-event').addEventListener('click', () => {
+  const d = selectedDay || today();
+  document.getElementById('inp-date').value = fmtDate(d);
+  document.getElementById('inp-title').value = '';
+  document.getElementById('inp-desc').value = '';
+  document.getElementById('inp-location').value = '';
+  document.getElementById('inp-allday').value = 'no';
+  document.getElementById('time-fields').style.display = '';
+  document.getElementById('modal-add').classList.add('open');
+  setTimeout(()=>document.getElementById('inp-title').focus(),80);
+});
+document.getElementById('btn-cancel').addEventListener('click', () => document.getElementById('modal-add').classList.remove('open'));
+document.getElementById('modal-add').addEventListener('click', e => { if(e.target===document.getElementById('modal-add')) document.getElementById('modal-add').classList.remove('open'); });
+document.getElementById('inp-allday').addEventListener('change', function() {
+  document.getElementById('time-fields').style.display = this.value==='yes' ? 'none' : '';
+});
+document.getElementById('inp-title').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('btn-save-event').click(); });
+
+document.getElementById('btn-save-event').addEventListener('click', async () => {
+  const title    = document.getElementById('inp-title').value.trim();
+  const desc     = document.getElementById('inp-desc').value.trim();
+  const location = document.getElementById('inp-location').value.trim();
+  const date     = document.getElementById('inp-date').value;
+  const allDay   = document.getElementById('inp-allday').value === 'yes';
+  const startT   = document.getElementById('inp-start').value;
+  const endT     = document.getElementById('inp-end').value;
+  if (!title || !date) { toast('Enter a title and date','err'); return; }
+
+  const btn = document.getElementById('btn-save-event'); btn.disabled=true; btn.textContent='Saving…';
+  try {
+    let eventData;
+    if (allDay) {
+      const nextDay = new Date(date+'T00:00:00');
+      nextDay.setDate(nextDay.getDate()+1);
+      eventData = {
+        summary: title, description: desc||undefined, location: location||undefined,
+        start: { date }, end: { date: fmtDate(nextDay) }
+      };
+    } else {
+      eventData = {
+        summary: title, description: desc||undefined, location: location||undefined,
+        start: { dateTime: `${date}T${startT}:00`, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+        end:   { dateTime: `${date}T${endT}:00`,   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }
+      };
+    }
+    await createEvent(eventData);
+    document.getElementById('modal-add').classList.remove('open');
+    toast('Event created ✓','ok');
+    activeView === 'week' ? renderWeek() : renderUpcoming();
+  } catch(err) { toast('Failed: '+err.message,'err'); }
+  btn.disabled=false; btn.textContent='Save to Calendar';
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderWeek();
+</script>
+</body>
+</html>
