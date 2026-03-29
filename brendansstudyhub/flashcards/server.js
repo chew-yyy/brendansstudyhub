@@ -182,75 +182,98 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── /api/calendar/* — Google Calendar proxy ──────────────────────────────
+  // ── /api/calendar/* — Google Calendar with OAuth refresh ────────────────────
   if (pathname.startsWith('/api/calendar')) {
-    const GCAL_TOKEN = process.env.GCAL_ACCESS_TOKEN || '';
+    // Get access token — either from request header (manual) or via refresh token
+    async function getAccessToken() {
+      // Allow manual token from client header (for testing)
+      const manualToken = req.headers['x-gcal-token'];
+      if (manualToken) return manualToken;
 
-    function gcalCall(method, gcalPath, body) {
+      // Use OAuth refresh token stored in Render env vars
+      const clientId     = process.env.GCAL_CLIENT_ID;
+      const clientSecret = process.env.GCAL_CLIENT_SECRET;
+      const refreshToken = process.env.GCAL_REFRESH_TOKEN;
+
+      if (!clientId || !clientSecret || !refreshToken) {
+        throw new Error('Google Calendar not configured. Add GCAL_CLIENT_ID, GCAL_CLIENT_SECRET, GCAL_REFRESH_TOKEN to Render environment variables.');
+      }
+
+      const body = new URLSearchParams({ grant_type:'refresh_token', client_id:clientId, client_secret:clientSecret, refresh_token:refreshToken }).toString();
       return new Promise((resolve, reject) => {
-        const data = body ? JSON.stringify(body) : '';
-        const headers = {
-          'Authorization': `Bearer ${GCAL_TOKEN}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        };
-        if (data) headers['Content-Length'] = Buffer.byteLength(data, 'utf8').toString();
-        const req = https.request({ hostname: 'www.googleapis.com', path: gcalPath, method, headers }, res => {
-          let out = '';
-          res.on('data', chunk => { out += chunk; });
-          res.on('end', () => {
-            try { resolve({ status: res.statusCode, body: JSON.parse(out) }); }
-            catch(e) { resolve({ status: res.statusCode, body: {} }); }
+        const r = https.request({ hostname:'oauth2.googleapis.com', path:'/token', method:'POST',
+          headers:{ 'Content-Type':'application/x-www-form-urlencoded', 'Content-Length':Buffer.byteLength(body) }
+        }, res2 => {
+          let d=''; res2.on('data',c=>{d+=c;}); res2.on('end',()=>{
+            const j=JSON.parse(d);
+            if(j.access_token) resolve(j.access_token);
+            else reject(new Error(j.error_description||j.error||'Token refresh failed'));
           });
         });
-        req.on('error', reject);
-        if (data) req.write(data);
-        req.end();
+        r.on('error',reject); r.write(body); r.end();
       });
     }
 
-    // GET /api/calendar/events?timeMin=...&timeMax=...
+    function gcalCall(accessToken, method, gcalPath, body) {
+      return new Promise((resolve, reject) => {
+        const data = body ? JSON.stringify(body) : '';
+        const headers = { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
+        if (data) headers['Content-Length'] = Buffer.byteLength(data, 'utf8').toString();
+        const r = https.request({ hostname:'www.googleapis.com', path:gcalPath, method, headers }, res2 => {
+          let d=''; res2.on('data',c=>{d+=c;}); res2.on('end',()=>{
+            try { resolve({ status:res2.statusCode, body:JSON.parse(d) }); }
+            catch(e) { resolve({ status:res2.statusCode, body:{} }); }
+          });
+        });
+        r.on('error',reject);
+        if(data) r.write(data);
+        r.end();
+      });
+    }
+
+    let accessToken;
+    try { accessToken = await getAccessToken(); }
+    catch(err) {
+      setCORS(res);
+      res.writeHead(401, {'Content-Type':'application/json'});
+      res.end(JSON.stringify({ error: err.message }));
+      return;
+    }
+
+    // GET /api/calendar/events
     if (pathname === '/api/calendar/events' && method === 'GET') {
       const { timeMin, timeMax } = parsed.query;
-      const qs = new URLSearchParams({ singleEvents: 'true', orderBy: 'startTime', maxResults: '50', timeMin: timeMin||new Date().toISOString(), timeMax: timeMax||(new Date(Date.now()+30*86400000).toISOString()) }).toString();
-      const r = await gcalCall('GET', `/calendar/v3/calendars/primary/events?${qs}`, null);
-      const events = (r.body.items || []).map(ev => ({
-        id: ev.id,
-        summary: ev.summary || '',
-        description: ev.description || '',
-        location: ev.location || '',
-        start: ev.start,
-        end: ev.end,
-        colorHex: ev.colorId ? ({1:'#7986cb',2:'#33b679',3:'#8e24aa',4:'#e67c73',5:'#f6c026',6:'#f5511d',7:'#039be5',8:'#616161',9:'#3f51b5',10:'#0b8043',11:'#d50000'}[ev.colorId] || '#4285f4') : '#4285f4',
-        allDay: !ev.start?.dateTime
+      const qs = new URLSearchParams({ singleEvents:'true', orderBy:'startTime', maxResults:'50',
+        timeMin: timeMin||new Date().toISOString(), timeMax: timeMax||(new Date(Date.now()+30*86400000).toISOString())
+      }).toString();
+      const r = await gcalCall(accessToken, 'GET', `/calendar/v3/calendars/primary/events?${qs}`, null);
+      const events = (r.body.items||[]).map(ev => ({
+        id:ev.id, summary:ev.summary||'', description:ev.description||'', location:ev.location||'',
+        start:ev.start, end:ev.end, allDay:!ev.start?.dateTime
       }));
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ events }));
+      setCORS(res); res.writeHead(200,{'Content-Type':'application/json'}); res.end(JSON.stringify({events}));
       return;
     }
 
     // POST /api/calendar/create
     if (pathname === '/api/calendar/create' && method === 'POST') {
       const body = await readBody(req);
-      let eventData;
-      try { eventData = JSON.parse(body); } catch(e) { res.writeHead(400); res.end('Bad JSON'); return; }
-      const r = await gcalCall('POST', '/calendar/v3/calendars/primary/events', eventData);
-      res.writeHead(r.status, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(r.body));
+      let ev; try { ev=JSON.parse(body); } catch(e) { res.writeHead(400); res.end('Bad JSON'); return; }
+      const r = await gcalCall(accessToken, 'POST', '/calendar/v3/calendars/primary/events', ev);
+      setCORS(res); res.writeHead(r.status,{'Content-Type':'application/json'}); res.end(JSON.stringify(r.body));
       return;
     }
 
-    // DELETE /api/calendar/delete?eventId=...
+    // DELETE /api/calendar/delete
     if (pathname === '/api/calendar/delete' && method === 'DELETE') {
       const { eventId } = parsed.query;
       if (!eventId) { res.writeHead(400); res.end('Missing eventId'); return; }
-      const r = await gcalCall('DELETE', `/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}`, null);
-      res.writeHead(r.status === 204 ? 200 : r.status, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true }));
+      const r = await gcalCall(accessToken, 'DELETE', `/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}`, null);
+      setCORS(res); res.writeHead(200,{'Content-Type':'application/json'}); res.end(JSON.stringify({ok:true}));
       return;
     }
 
-    res.writeHead(404); res.end('Not found'); return;
+    setCORS(res); res.writeHead(404); res.end('Not found'); return;
   }
 
   // ── /api/notion/* ──────────────────────────────────────────────────────────
@@ -314,11 +337,32 @@ const server = http.createServer(async (req, res) => {
 
   // ── Static files ───────────────────────────────────────────────────────────
   let filePath = pathname === '/' ? '/index.html' : pathname;
+  // Decode URL encoding (e.g. %20 → space)
+  try { filePath = decodeURIComponent(filePath); } catch(e) {}
   filePath = path.join(__dirname, filePath);
   if (!filePath.startsWith(__dirname)) { res.writeHead(403); res.end('Forbidden'); return; }
 
   fs.readFile(filePath, (err, data) => {
-    if (err) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('404 Not Found'); return; }
+    if (err) {
+      // Try with .html extension if not present
+      if (!path.extname(pathname)) {
+        const withHtml = filePath + '.html';
+        return fs.readFile(withHtml, (err2, data2) => {
+          if (err2) {
+            console.error(`404: ${pathname} (tried ${filePath} and ${withHtml})`);
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.end('404 Not Found');
+            return;
+          }
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end(data2);
+        });
+      }
+      console.error(`404: ${pathname} -> ${filePath}: ${err.message}`);
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('404 Not Found');
+      return;
+    }
     const ext = path.extname(filePath);
     res.writeHead(200, { 'Content-Type': MIME[ext] || 'text/plain' });
     res.end(data);
@@ -384,4 +428,12 @@ function rt(text) {
   return segments.length ? segments : [{ type:'text', text:{ content: text } }];
 }
 
-server.listen(PORT, () => console.log(`Study Hub running on port ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`Study Hub running on port ${PORT}`);
+  console.log(`Serving files from: ${__dirname}`);
+  const fs2 = require('fs');
+  try {
+    const files = fs2.readdirSync(__dirname).filter(f => f.endsWith('.html'));
+    console.log(`HTML files found: ${files.join(', ')}`);
+  } catch(e) { console.log('Could not list files:', e.message); }
+});
